@@ -3,8 +3,8 @@
 #include <vector>
 #include <queue>
 #include <format>
-#include "setting.h"
-#include "fitter.h"
+#include "../headers/fitter.h"
+#include "../headers/setting.h"
 
 using namespace std;
 #define rep(i,n) for(int i=0;i<n;i++)
