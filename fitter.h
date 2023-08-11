@@ -1,11 +1,13 @@
 #include <iostream>
 #include <random>
-#include "setting.h"
+#include "p_func.h"
 #include <TMath.h>
 #include <TROOT.h>
 using namespace std;
 #define rep(i,n) for(int i=0;i<n;i++)
+#define prep(i,m,n) for(int i=m;i<n;i++)
 const int dbin = 30;
+
 class Fitter{
     public:
     void syoki_para(TGraphErrors* graph,TF1* f,int bin){
@@ -60,9 +62,7 @@ class Fitter{
         int p0,p1,p2;
         p0 = rand_bin(mt);
         while(p0==p1) p1 = rand_bin(mt);
-
         while(p2==p0 || p2==p1) p2 = rand_bin(mt);
-
         double x0 = graph -> GetPointX(p0);
         double y0 = graph -> GetPointY(p0);
         double x1 = graph -> GetPointX(p1);
@@ -79,6 +79,7 @@ class Fitter{
         f -> SetParameter(0,a);
         f -> SetParameter(1,b);
         f -> SetParameter(2,c);
+        
     }
     /*
     初期値をランダムな3つのパラメータを振ることで最適化を目指す
@@ -94,65 +95,113 @@ class Fitter{
         f -> SetParameter(1,rand1(mt));
         f -> SetParameter(2,rand2(mt));
     }
-    void rand_fit(TGraphErrors*graph,TF1*f,int ite,int fite,double fm,double fM){
-        double chimin = 100.0*27;
+    void rand_fit(TGraphErrors* graph,TF1* f,int ite,int fite,double fm,double fM,double &res){
+        syoki_para(graph,f,0);
+        rep(i,fite)graph -> Fit(f,"MQ","",fm,fM);
+        double chi2 = f -> GetChisquare();
+        double ndf = f -> GetNDF();
+        double chimin = chi2/ndf;
+        double chimin0 = chimin;
         vector<double> good_para(3);
+        rep(i,3)good_para[i] = f -> GetParameter(i);
+        
         rep(i,ite){
             syoki_rand1(graph,f);
             //syoki_rand2(f);
-            rep(j,fite)graph -> Fit(f,"MQ","",fm,fM);
-            double chi2 = f -> GetChisquare();
-            double ndf = f -> GetNDF();
+            rep(j,fite)graph -> Fit(f,"MQN","",fm,fM);
+            chi2 = f -> GetChisquare();
+            ndf = f -> GetNDF();
             chi2 /= ndf;
-            cout << chi2 << endl;
+            //cout << chi2 << endl;
             if(chi2 < chimin){
                 chimin = chi2;
                 rep(k,3)good_para[k] = f -> GetParameter(k);
             }
         }
         rep(i,3) f -> SetParameter(i,good_para[i]);
+        res = chimin;
+    }
+    void rand_fit_test(TGraphErrors* graph,TF1* f,int fite,double fm,double fM,double chi_test,int &num){
+        syoki_para(graph,f,0);
+        double chi2,ndf;
+        rep(i,fite){
+            graph -> Fit(f,"MQN","",fm,fM);
+            chi2 = f -> GetChisquare();
+            ndf = f -> GetNDF();
+            
+        }
+        //cout << chi2/ndf << endl;
+        chi2 = f -> GetChisquare();
+        ndf = f -> GetNDF();
+        double chimin = chi2/ndf;
+        if(chi_test!=chimin){
+            num++;
+            cout << "Yes" << endl;
+            cout << chi_test << " : " << chimin << endl;
+        }
+        
     }
     Double_t MyFunction(double x,double p0,double p1){
         return p0*TMath::Exp(-x/2)*pow(x,(p1/2)-1)/(pow(2,p1/2)*TMath::Gamma(p1/2));
     }
-    double ChiValue(TGraphErrors* graph,TF1* f,int boffset){
-        int npoints = graph -> GetN();
-        double chi2 = 0.0;
-        double x,y,ex,ey;
-        rep(i,npoints){
-            graph -> GetPoint(i+boffset,x,y);
-            ex = graph -> GetErrorX(i+boffset);
-            ey = graph -> GetErrorY(i+boffset);
-
-            double expectedY = f -> Eval(x);
-            double residual = (y-expectedY)/ey;
-
-            chi2 += residual*residual;
-        }
-        return chi2;
-    }
-    /*void getmnstat(TMinuit*minu){
-        Double_t fmin,fedm,errdef;
-        Int_t npari,nparx,istat;
-        minu -> mnstat(fmin,fedm,errdef,npari,nparx,istat);
-        cout << "fmin = " << fmin << endl;
-
-    }*/
-    //要件定義:パラメータ空間において二次元グラフを作成する
-    void pfield(TGraphErrors*graph,TGraph2D* graph2,TF1* f,double offset){
-        int bin = 0;
-        for(double i=-0.1;i<1.1;i+=0.1){
-            for(double j=0;j<100;j+=1){
-                f -> SetParameter(0,i);
-                f -> SetParameter(1,j);
-                f -> SetParameter(2,offset);
-                double chi2 = ChiValue(graph,f,0);
-                int ndf = graph -> GetN();
-                ndf -= 3;
-                cout << i << " " << j << " " << chi2/ndf << endl;
-                graph2 -> SetPoint(bin,i,j,chi2/ndf);
-                bin++;
+    //きちんと元の縮尺に戻してからヒストに入れてホワイトノイズの散らばりを見る
+    void FillHist(TF1* f,TGraphErrors* graph,TH1D* hist,double yscale,double &dym){
+        double x,y,dy,y1;
+        double dymax = -100;
+        rep(i,dbin){
+            x = graph -> GetPointX(i);
+            y = graph -> GetPointY(i);
+            y1 = f -> Eval(x);
+            dy = y1 - y;
+            dy *= yscale;
+            hist -> Fill(dy);
+            if(abs(dy)>=dymax){
+                //cout << dy << endl;
+                dymax = abs(dy);
             }
         }
+        if(dym<dymax)dym = dymax;
+        //cout << "dymax = " << dymax << endl;
+
+    }
+    void make_scale(TGraphErrors* graph,TGraph* mgraph,int sbin,double &yscale){
+        //走査範囲のレンジ調査
+        double xmin,xmax,ymin,ymax;
+        ymin = 10000;
+        ymax = -200;
+        double x1 = mgraph -> GetPointX(sbin);
+        double x2 = mgraph -> GetPointX(sbin+dbin-1);
+        xmin = min(x1,x2);
+        xmax = max(x1,x2);
+        double x,y;
+        prep(bin,sbin,sbin+dbin){
+            y = mgraph -> GetPointY(bin);
+            if(y<ymin)ymin = y;
+            if(y>ymax)ymax = y;
+        }
+        //レンジに合わせてセットポイントを変える
+        //x -> (x-x0)/xrange, y ->  (y-ymin)/yrange ??
+        
+        double xrange = xmax-xmin;
+        double yrange = ymax-ymin;
+        prep(bin,sbin,sbin+dbin){
+            x = mgraph -> GetPointX(bin);
+            y = mgraph -> GetPointY(bin);
+            x = (x-xmin)/xrange;
+            y = (y-ymin)/yrange;
+            graph -> SetPoint(bin-sbin,x,y);
+            //cout << x << " " << y << endl;
+            graph -> SetPointError(bin-sbin,0,0.1/yrange);
+        }
+        yscale = yrange;
+    }
+    vector<double> fparameters(TF1* f,int pnum){
+        vector<double> para;
+        rep(i,pnum){
+            double p;
+            p = f -> GetParameter(i);
+            para.push_back(p);
+        }
+        return para;
     }
 };
