@@ -19,7 +19,15 @@ void sigmazengo(){
     rep(i,24){
         graph -> SetPoint(i,i+1,sigkou[i]-sigzen[i]);
     }
-    TGraph* rgraph = new TGraph;
     st.Graph(graph,ax);
     graph -> Draw("AP");
+    TGraph* rgraph = new TGraph;
+    rep(i,24){
+        rgraph -> SetPoint(i,i+1,sigkou[i]/sigzen[i]);
+    }
+    ax.ymin = 0.5;
+    ax.ymax = 1.5;
+    ax.title = "the_diff;measure;sigmaato/sigmamae";
+    st.Graph(rgraph,ax);
+    rgraph -> Draw("AP");
 }
