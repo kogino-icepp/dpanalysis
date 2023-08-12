@@ -71,8 +71,8 @@ Double_t chif_free(double x,double p0,double k,double p1){
 Double_t chiF_free(double x,double p0,double k,double p1){
     return p0*TMath::Gamma(k/2,x/(2*p1));
 }
-Double_t chiF_freefit(double x,double p0,double p1,double bin){
-    return (chiF_free((x+bin/2),p0,27,p1)-chiF_free((x-bin/2),p0,27,p1));
+Double_t chiF_freefit(double x,double p0,double p1,double k,double bin){
+    return (chiF_free((x+bin/2),p0,k,p1)-chiF_free((x-bin/2),p0,k,p1));
 }
 bool toge_hantei(vector<bool>ctoge, vector<bool>htoge, int bin, queue<int>& que){
     prep(i,bin,bin+dbin){
@@ -172,7 +172,7 @@ void baselinefit_2(){
     queue<double> ratio;
     double rsum = 0;
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
-    for(int i=1;i<2;i++){
+    for(int i=1;i<25;i++){
         double dym = 0;
         int outnum = 0;
         TH1D* plus_ratio = new TH1D("plus_ratio","log10(plus_raito;d(chi2/ndf)/(chi2/ndf));Count",100,-20,0);
@@ -421,7 +421,9 @@ void baselinefit_2(){
         cout << "Entry number : " << entnum << endl;
         //カイ二乗分布との相関を確認する
         //Double_t chiF_freefit(double x,double p0,double p1,double bin)
-        TF1* test_func = new TF1("test_func","chiF_ndf2(x,entnum,[0],0.1)",0,10);
+        TF1* test_func = new TF1("test_func","chiF_freefit(x,[0],[1],27,0.1)",0,10);
+        test_func -> FixParameter(0,entnum);
+        test_func -> SetParameter(1,1/27);
         chi_hist -> Fit(test_func);
         chi_hist -> Draw();
         test_func -> Draw("same");
@@ -431,9 +433,9 @@ void baselinefit_2(){
         1. 分布と明らかに乖離があるものを調べる
         2. そもそも全然うまく行っていない事実を
         */
-        /*filesystem::current_path(savedird);
-        string gname = "mirror_temp"+to_string(i)+".ps";
+        filesystem::current_path(savedir2);
+        string gname = "chi_fit"+to_string(i)+".ps";
         c1 -> SaveAs(gname.c_str());
-        filesystem::current_path(cdir);*/
+        filesystem::current_path(cdir);
     }
 }

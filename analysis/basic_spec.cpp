@@ -1,4 +1,6 @@
 #include <iostream>
+#include "../headers/setting.h"
+#include "../headers/fitter.h"
 using namespace std;
 
 void basic_spec(){
