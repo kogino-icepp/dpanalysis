@@ -83,7 +83,9 @@ bool toge_hantei(vector<bool>ctoge, vector<bool>htoge, int bin, queue<int>& que)
     }
     return false;
 }
-
+Double_t gausf(double x,double p0,double mean,double sigma){
+    return p0*TMath::Exp(-(x-mean)*(x-mean)/(2*sigma*sigma));
+}
 int both = 0;
 int tsafe = 0;
 int tout = 0;
@@ -172,12 +174,15 @@ void baselinefit_2(){
     queue<double> ratio;
     double rsum = 0;
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
+    vector<pair<double,double>> pairsigma;
     for(int i=1;i<25;i++){
         double dym = 0;
         int outnum = 0;
         TH1D* plus_ratio = new TH1D("plus_ratio","log10(plus_raito;d(chi2/ndf)/(chi2/ndf));Count",100,-20,0);
         TH1D* dist = new TH1D("dist","after-before;dist[d(chi2/ndf)];count",100,-10,10);
         TH1D* white_hist = new TH1D("white","white_noise;dT[K];Count",100,-1,1);
+        TH1D* white_hzen = new TH1D("white_hzen","white_noise;dT[K];Count",100,-1,1);
+        TH1D* white_hkou = new TH1D("white_hkou","white_noise;dT[K];Count",100,-1,1);
         TH1D* yscale_hist = new TH1D("yscale_hist","yscale;yscale[K];Count",100,0,15);
         double good_num = 0;
         double bad_num = 0;
@@ -215,7 +220,7 @@ void baselinefit_2(){
         int gcbin2 = 0;
         TH1D* chi_hist = new TH1D("chi_hist","chi_hist;chi2/Ndf;Count",100,0,10);
 
-        for(int j=0;j<4;j++){
+        for(int j=0;j<1;j++){
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
             for(int data=0;data<576;data++){
@@ -347,12 +352,13 @@ void baselinefit_2(){
                 rep(l,3){
                     cout << "para" << l << ": " << pbefo[l] << " <-> " << paft[l] << endl;
                 }*/
-                ft.FillHist(f2,spgraph,white_hist,yscale,dym);
+                if(bin<cb)ft.FillHist(f2,spgraph,white_hzen,yscale,dym);
+                else ft.FillHist(f2,spgraph,white_hkou,yscale,dym);
                 chi_hist -> Fill(res);
-                if((chi2/ndf-res)>0.5){
+                /*if((chi2/ndf-res)>0.5){
                     cout << "j1: " << j << " && bin: " << bin << endl;
                     cout << "res: " << res << " & " << chi2/ndf-res <<endl;
-                }
+                }*/
                 //dist -> Fill(res-chi2/ndf);
                 st.GraphErrors(spgraph,axscale);
                 spgraph -> Draw("AP");
@@ -380,62 +386,59 @@ void baselinefit_2(){
                 TGraphErrors* spgraph = new TGraphErrors;
                 ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
                 //cout << yscale << endl;
-                TF1* f = new TF1("f","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                TF1* f1 = new TF1("f","[0]*(x-[1])*(x-[1])+[2]",0,1);
                 TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                ft.syoki_para(spgraph,f2,0);
+                ft.syoki_para(spgraph,f1,0);
                 double x = 100000;
                 rep(k,10){
-                    spgraph -> Fit(f2,"MQN","",0,1.0);
-                    chi2 = f2 -> GetChisquare();
-                    ndf = f2 -> GetNDF();
+                    spgraph -> Fit(f1,"MQN","",0,1.0);
+                    chi2 = f1 -> GetChisquare();
+                    ndf = f1 -> GetNDF();
                     x=chi2/ndf;
                     //cout << x << endl;
                 }
-                chi2 = f2 -> GetChisquare();
-                ndf = f2 -> GetNDF();
+                chi2 = f1 -> GetChisquare();
+                ndf = f1 -> GetNDF();
                 double res;
-                ft.rand_fit(spgraph,f,100,10,0,1.0,res);
+                ft.rand_fit(spgraph,f2,100,10,0,1.0,res);
                 /*vector<double> pbefo = ft.fparameters(f2,3);
                 vector<double> paft = ft.fparameters(f,3);
                 rep(l,3){
                     cout << "para" << l << ": " << pbefo[l] << " <-> " << paft[l] << endl;
                 }*/
                 chi_hist -> Fill(res);
-                ft.FillHist(f,spgraph,white_hist,yscale,dym);
-                if((chi2/ndf-res)>0.5){
+                if(bin<cb)ft.FillHist(f2,spgraph,white_hzen,yscale,dym);
+                else ft.FillHist(f2,spgraph,white_hkou,yscale,dym);
+                /*if((chi2/ndf-res)>0.5){
                     cout << "j2: " << j << " && bin: " << bin << endl;
                     cout << "res: " << res << " & " << chi2/ndf-res <<endl;
-                }
+                }*/
                 //cout << res-(chi2/ndf) << endl;
                 st.GraphErrors(spgraph,axscale);
                 spgraph -> Draw("AP");
-                f -> Draw("same");
+                f2 -> Draw("same");
             }
         //cout << "----------" << endl;
         }
-        st.Hist(chi_hist);
-        c1 -> SetLogy();
-        //white_hist -> Fit("gaus");
-        //white_hist -> Draw();
-        int entnum = chi_hist -> GetEntries();
-        cout << "Entry number : " << entnum << endl;
-        //カイ二乗分布との相関を確認する
-        //Double_t chiF_freefit(double x,double p0,double p1,double bin)
-        TF1* test_func = new TF1("test_func","chiF_freefit(x,[0],[1],27,0.1)",0,10);
-        test_func -> FixParameter(0,entnum);
-        test_func -> SetParameter(1,1/27);
-        chi_hist -> Fit(test_func);
-        chi_hist -> Draw();
-        test_func -> Draw("same");
-        //2は多分飛び値が結構ある
-        /*
-        この後どうする
-        1. 分布と明らかに乖離があるものを調べる
-        2. そもそも全然うまく行っていない事実を
-        */
-        filesystem::current_path(savedir2);
+        TF1* f1 = new TF1("f1","gausf(x,[0],[1],[2])");
+        TF1* f2 = new TF1("f2","gausf(x,[0],[1],[2])");
+        f1 -> SetParameter(1,0);
+        f2 -> SetParameter(1,0);
+        f1 -> SetParameter(2,0.1);
+        f2 -> SetParameter(2,0.1);
+        white_hzen -> Fit(f1);
+        white_hkou -> Fit(f2);
+        double sigzen = f1 -> GetParameter(2);
+        double sigkou = f2 -> GetParameter(2);
+        pairsigma.push_back({sigzen,sigkou});
+        
+        /*filesystem::current_path(savedir2);
         string gname = "chi_fit"+to_string(i)+".ps";
         c1 -> SaveAs(gname.c_str());
-        filesystem::current_path(cdir);
+        filesystem::current_path(cdir);*/
+    }
+    rep(i,24){
+        cout << i+1 << endl;
+        cout << pairsigma[i].first << " <===>  " << pairsigma[i].second << endl; 
     }
 }
