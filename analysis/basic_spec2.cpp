@@ -2,6 +2,7 @@
 #include <queue>
 #include "../headers/setting.h"
 #include "../headers/fitter.h"
+#include <TROOT.h>
 using namespace std;
 typedef long long ll;
 const double dcsigma = 0.000487;
