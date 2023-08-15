@@ -56,13 +56,17 @@ class Fitter{
     }
     //初期値を、ランダムな3点のデータ点を取ることで与える
     void syoki_rand1(TGraphErrors* graph,TF1* f){
+        cout << "first" << endl;
         random_device rnd;
         mt19937 mt(rnd());
         uniform_int_distribution<> rand_bin(0,dbin-1);
+        cout << "second" << endl;
         int p0,p1,p2;
         p0 = rand_bin(mt);
+        cout << "third" << endl;
         while(p0==p1) p1 = rand_bin(mt);
         while(p2==p0 || p2==p1) p2 = rand_bin(mt);
+        cout << "forth" << endl;
         double x0 = graph -> GetPointX(p0);
         double y0 = graph -> GetPointY(p0);
         double x1 = graph -> GetPointX(p1);
@@ -75,11 +79,11 @@ class Fitter{
         double a = (y1-m*x1-n)/((x1-x0)*(x1-x2));
         double b = (x0+x2-(m/a))/2;
         double c = a*x0*x2+n-a*b*b;
-        
+        cout << "third" << endl;
         f -> SetParameter(0,a);
         f -> SetParameter(1,b);
         f -> SetParameter(2,c);
-        
+        cout << a << " " << b << " " << c << endl;
     }
     /*
     初期値をランダムな3つのパラメータを振ることで最適化を目指す

@@ -137,7 +137,7 @@ Double_t MyFunction(double x,double p0,double p1){
 1. coldとhotでアウトなものは無条件に抜く
 2. mirrorに関しては4回分データを走査し、
 */
-void baselinefit_2(){
+void fit_test(){
     //種々のヘッダー関数を用意
     Setting st;
     st.dot_size = 0.8;
@@ -302,19 +302,6 @@ void baselinefit_2(){
             toge_scan(c_toge2[j],cold2,ddcsigma,ddclim,ddcold2);
             toge_scan(h_toge1[j],hot1,ddhsigma,ddhlim,ddhot1);
             toge_scan(h_toge2[j],hot2,ddhsigma,ddhlim,ddhot2);
-            /*axrange axdd = {0,nbin,-10,10,0,1,"ddhot1;bin;ddhot[a.u]"};
-            st.Graph(ddhot1,axdd);
-            ddhot1 -> Draw("AP");
-            prep(bin,sb,fb){
-                if(c_toge1[j][bin])cout << "cbin1 : " << bin << endl;
-                if(c_toge2[j][bin])cout << "cbin2 : " << bin << endl;
-                if(h_toge1[j][bin])cout << "hbin1 : " << bin << endl;
-                if(h_toge2[j][bin])cout << "hbin2 : " << bin << endl;
-                
-            }*/
-            //setting.GraphErrors(pgraph1,ifmin,ifmax,0,100);
-            //pgraph1 -> SetTitle("Prec;Freq[GHz];Prec[K]");
-            //pgraph1 -> Draw("AP");
             
             double fm,fM;
             double chi2,chi2_d,chi22;
@@ -323,7 +310,7 @@ void baselinefit_2(){
             //一回目のデータの処理
             TGraph* chi_freq1 = new TGraph;
             int cfnum1 = 0;
-            for(int bin=sb;bin<fb;bin+=dbin){
+            for(int bin=sb;bin<sb+1;bin+=dbin){
                 //cout << bin << " : 1" << endl;
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
@@ -348,100 +335,17 @@ void baselinefit_2(){
                 chi2 = f1 -> GetChisquare();
                 ndf = f1 -> GetNDF();
                 double res;
-                //ft.rand_fit(spgraph,f2,100,10,0,1,res);
+                ft.rand_fit(spgraph,f2,100,10,0,1,res);
                 cout << "after fit" << endl;
                 chi_freq1 -> SetPoint(cfnum1,Freq1[bin],res);
                 cfnum1++;
-                //chi_hist -> Fill(res);
-                /*vector<double> pbefo = ft.fparameters(f1,3);
-                vector<double> paft = ft.fparameters(f2,3);
-                rep(l,3){
-                    cout << "para" << l << ": " << pbefo[l] << " <-> " << paft[l] << endl;
-                }
-                if(bin<cb)ft.FillHist(f2,spgraph,white_hzen,yscale,dym);
-                else ft.FillHist(f2,spgraph,white_hkou,yscale,dym);
-                
-                if((chi2/ndf-res)>0.5){
-                    cout << "j1: " << j << " && bin: " << bin << endl;
-                    cout << "res: " << res << " & " << chi2/ndf-res <<endl;
-                }
-                //dist -> Fill(res-chi2/ndf);
-                st.GraphErrors(spgraph,axscale);
-                spgraph -> Draw("AP");
-                f2 -> Draw("same");*/
                 
             }
             axrange axcf = {ifmin,ifmax,0,10,0,1,"chi_freq;Freq[GHz];chi2/NDF"};
             st.Graph(chi_freq1,axcf);
             chi_freq1 -> Draw("AP");
             //cout << "----------" << endl;
-            //二回目のデータの処理　分離するのはいいとしてその基準と
-            TGraph* chi_freq2 = new TGraph;
-            int cfnum2 = 0;
-            for(int bin=sb;bin<fb;bin+=dbin){
-                cout << bin << " : 1" << endl;
-                //cout << Freq2[bin] << endl;
-                double dym;
-                bool hantei = false;
-                prep(k,bin,bin+dbin){
-                    if(c_toge2[j][k] || h_toge2[j][k]){
-                        hantei = true;
-                        break;
-                    }
-                }
-                if(hantei){
-                    //cout << "out" << endl;
-                    outnum++;
-                    continue;
-                }
-                double yscale = 100000;
-                TGraphErrors* spgraph = new TGraphErrors;
-                ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
-                //cout << yscale << endl;
-                TF1* f1 = new TF1("f","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                ft.syoki_para(spgraph,f1,0);
-                double x = 100000;
-                rep(k,10){
-                    spgraph -> Fit(f1,"MQN","",0,1.0);
-                    chi2 = f1 -> GetChisquare();
-                    ndf = f1 -> GetNDF();
-                    x=chi2/ndf;
-                    //cout << x << endl;
-                }
-                chi2 = f1 -> GetChisquare();
-                ndf = f1 -> GetNDF();
-                double res;
-                ft.rand_fit(spgraph,f2,100,10,0,1.0,res);
-                chi_freq2 -> SetPoint(cfnum2,Freq2[bin],res);
-                cfnum2++;
-                chi_hist -> Fill(res);
-                /*vector<double> pbefo = ft.fparameters(f2,3);
-                vector<double> paft = ft.fparameters(f,3);
-                rep(l,3){
-                    cout << "para" << l << ": " << pbefo[l] << " <-> " << paft[l] << endl;
-                }
-                
-                if(bin<cb)ft.FillHist(f2,spgraph,white_hzen,yscale,dym);
-                else ft.FillHist(f2,spgraph,white_hkou,yscale,dym);
-                if((chi2/ndf-res)>0.5){
-                    cout << "j2: " << j << " && bin: " << bin << endl;
-                    cout << "res: " << res << " & " << chi2/ndf-res <<endl;
-                }
-                //cout << res-(chi2/ndf) << endl;
-                st.GraphErrors(spgraph,axscale);
-                spgraph -> Draw("AP");
-                f2 -> Draw("same");*/
-            }
-            //Double_t chiF_freefit(double x,double p0,double p1,double k,double bin){
-            TF1* chif =  new TF1("chif","chiF_freefit(x,[0],[1],27,0.1)");
-            int entnum = chi_hist -> GetEntries();
-            chif -> FixParameter(0,entnum);
-            //chif -> FixParameter(0);
-            chi_hist -> Fit(chif);
-
             
-        //cout << "----------" << endl;
         }
 
     
