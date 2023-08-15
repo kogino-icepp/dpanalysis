@@ -96,7 +96,7 @@ void basic_spec2(){
         double ifmax = 216.1+2*i;
         vector<vector<int>> Ite(34400);
         axrange ax = {ifmin,ifmax,-10,100,0,1,""};
-        axrange axg = {ifmin,ifmax,0,pow(10,32),0,1,""};
+        axrange axg = {ifmin,ifmax,0,pow(10,31),0,1,""};
         for(int j=0;j<4;j++){
             TGraph* graph = new TGraph;
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
@@ -177,18 +177,20 @@ void basic_spec2(){
                 ggraph2 -> SetPoint(bin-sb,Freq2[bin],calres2[0][bin]);
             }
             axg.title = "Gain1;Freq[GHz];Gain[a.u]";
+            ax.title = "prec1;Freq[GHz];Prec[K]";
             //c1 -> SetLogy();
-            st.Graph(ggraph1,axg);
-            ggraph1 -> Draw("AL");
+            st.Graph(pgraph1,ax);
+            pgraph1 -> Draw("AL");
             filesystem::current_path(savedird);
-            string gname = "gain"+to_string(i)+"_"+to_string(j)+"_1.ps";
+            string gname = "mirror_temp"+to_string(i)+"_"+to_string(j)+"_1.ps";
             c1 -> SaveAs(gname.c_str());
 
             axg.title = "Gain2;Freq[GHz];Prec[K]";
-            st.Graph(ggraph2,axg);
-            ggraph2 -> Draw("AL");
+            ax.title = "prec2;Freq[GHz];Prec[K]";
+            st.Graph(pgraph2,ax);
+            pgraph2 -> Draw("AL");
             //c1 -> SetLogy();
-            gname = "gain"+to_string(i)+"_"+to_string(j)+"_2.ps";
+            gname = "mirror_temp"+to_string(i)+"_"+to_string(j)+"_2.ps";
             c1 -> SaveAs(gname.c_str());
             filesystem::current_path(cdir);
         }
