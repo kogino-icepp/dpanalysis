@@ -175,7 +175,7 @@ void baselinefit_2(){
     double rsum = 0;
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
     vector<pair<double,double>> pairsigma;
-    for(int i=1;i<25;i++){
+    for(int i=2;i<3;i++){
         double dym = 0;
         int outnum = 0;
         TH1D* plus_ratio = new TH1D("plus_ratio","log10(plus_raito;d(chi2/ndf)/(chi2/ndf));Count",100,-20,0);
@@ -219,8 +219,8 @@ void baselinefit_2(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         TH1D* chi_hist = new TH1D("chi_hist","chi_hist;chi2/Ndf;Count",100,0,10);
-        //要件定義: カイ二乗分布の周波数依存性を示すグラフを作る
-        for(int j=0;j<4;j++){
+        //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
+        for(int j=0;j<1;j++){
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
             for(int data=0;data<576;data++){
@@ -324,6 +324,7 @@ void baselinefit_2(){
             TGraph* chi_freq1 = new TGraph;
             int cfnum1 = 0;
             for(int bin=sb;bin<fb;bin+=dbin){
+                cout << bin << " : 1" << endl;
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
                     if(c_toge1[j][k] || h_toge1[j][k]){
@@ -343,12 +344,15 @@ void baselinefit_2(){
                 ft.syoki_para(spgraph,f1,0);
 
                 rep(ite,10)spgraph -> Fit(f1,"MQN","",0,1);
+                cout << "before fit" << endl;
                 chi2 = f1 -> GetChisquare();
                 ndf = f1 -> GetNDF();
                 double res;
                 ft.rand_fit(spgraph,f2,100,10,0,1,res);
+                cout << "after fit" << endl;
                 chi_freq1 -> SetPoint(cfnum1,Freq1[bin],res);
                 cfnum1++;
+                chi_hist -> Fill(res);
                 /*vector<double> pbefo = ft.fparameters(f1,3);
                 vector<double> paft = ft.fparameters(f2,3);
                 rep(l,3){
@@ -356,7 +360,7 @@ void baselinefit_2(){
                 }
                 if(bin<cb)ft.FillHist(f2,spgraph,white_hzen,yscale,dym);
                 else ft.FillHist(f2,spgraph,white_hkou,yscale,dym);
-                chi_hist -> Fill(res);
+                
                 if((chi2/ndf-res)>0.5){
                     cout << "j1: " << j << " && bin: " << bin << endl;
                     cout << "res: " << res << " & " << chi2/ndf-res <<endl;
@@ -370,15 +374,12 @@ void baselinefit_2(){
             axrange axcf = {ifmin,ifmax,0,10,0,1,"chi_freq;Freq[GHz];chi2/NDF"};
             st.Graph(chi_freq1,axcf);
             chi_freq1 -> Draw("AP");
-            filesystem::current_path(savedir2);
-            string gname = "chi_freq"+to_string(i)+"_"+to_string(j)+"_1.ps";
-            c1 -> SaveAs(gname.c_str());
-            filesystem::current_path(cdir);
             //cout << "----------" << endl;
             //二回目のデータの処理　分離するのはいいとしてその基準と
             TGraph* chi_freq2 = new TGraph;
             int cfnum2 = 0;
             for(int bin=sb;bin<fb;bin+=dbin){
+                cout << bin << " : 1" << endl;
                 //cout << Freq2[bin] << endl;
                 double dym;
                 bool hantei = false;
@@ -414,12 +415,13 @@ void baselinefit_2(){
                 ft.rand_fit(spgraph,f2,100,10,0,1.0,res);
                 chi_freq2 -> SetPoint(cfnum2,Freq2[bin],res);
                 cfnum2++;
+                chi_hist -> Fill(res);
                 /*vector<double> pbefo = ft.fparameters(f2,3);
                 vector<double> paft = ft.fparameters(f,3);
                 rep(l,3){
                     cout << "para" << l << ": " << pbefo[l] << " <-> " << paft[l] << endl;
                 }
-                chi_hist -> Fill(res);
+                
                 if(bin<cb)ft.FillHist(f2,spgraph,white_hzen,yscale,dym);
                 else ft.FillHist(f2,spgraph,white_hkou,yscale,dym);
                 if((chi2/ndf-res)>0.5){
@@ -431,28 +433,18 @@ void baselinefit_2(){
                 spgraph -> Draw("AP");
                 f2 -> Draw("same");*/
             }
-            st.Graph(chi_freq2,axcf);
-            chi_freq2 -> Draw("AP");
-            filesystem::current_path(savedir2);
-            gname = "chi_freq"+to_string(i)+"_"+to_string(j)+"_2.ps";
-            c1 -> SaveAs(gname.c_str());
-            filesystem::current_path(cdir);
+            //Double_t chiF_freefit(double x,double p0,double p1,double k,double bin){
+            TF1* chif =  new TF1("chif","chiF_freefit(x,[0],[1],27,0.1)");
+            int entnum = chi_hist -> GetEntries();
+            chif -> FixParameter(0,entnum);
+            //chif -> FixParameter(0);
+            chi_hist -> Fit(chif);
+
+            
         //cout << "----------" << endl;
         }
 
-        /*TF1* f1 = new TF1("f1","gausf(x,[0],[1],[2])");
-        TF1* f2 = new TF1("f2","gausf(x,[0],[1],[2])");
-        f1 -> SetParameter(1,0);
-        f2 -> SetParameter(1,0);
-        f1 -> SetParameter(2,0.1);
-        f2 -> SetParameter(2,0.1);
-        white_hzen -> Fit(f1);
-        white_hkou -> Fit(f2);
-        double sigzen = f1 -> GetParameter(2);
-        double sigkou = f2 -> GetParameter(2);
-        pairsigma.push_back({sigzen,sigkou});
-        
-        */
+    
     }
     
 }

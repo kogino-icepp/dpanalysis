@@ -107,6 +107,7 @@ class Fitter{
         
         rep(i,ite){
             syoki_rand1(graph,f);
+            cout << i << endl;
             //syoki_rand2(f);
             rep(j,fite)graph -> Fit(f,"MQN","",fm,fM);
             chi2 = f -> GetChisquare();
