@@ -40,27 +40,11 @@ void chif_test(){
     TGraph* graph = new TGraph;
     //ヒストグラムだから多分これで良い
     double bhaba = 0.1;
-    /*TF1* test_func = new TF1("test_func","chiF_ndf2(x,[0],[1],[2])",0,10);
-    test_func -> SetParameter(0,7000);
-    test_func -> SetParameter(1,27);
-    test_func -> SetParameter(2,0.1);
-    for(int i=0;i<100;i++){
-        //graph -> SetPoint(i,i*bhaba+0.05,(chif_ndf((i+1)*bhaba,1,)-chif_ndf((i)*bhaba,1,27))/0.1);
-        graph -> SetPoint(i,i*bhaba+0.05,(chiF_ndf((i+1)*bhaba,1,27)-chiF_ndf((i)*bhaba,1,27)));
-        cout << fixed;
-        cout << setprecision(10) << endl;
-        cout << "x : " << i*bhaba << " y: " << (chiF((i)*bhaba,1,2)) << endl;
-    }
-    axrange ax = {0,10,0,3000,0,1,"test;test;test"};
-    st.Graph(graph,ax);
-    c1 -> SetLogy();
-    graph -> Draw("AL");
-    test_func -> Draw("same");*/
-    TF1* f_test = new TF1("f_test","chiF_freefit(x,1,[1],[0],0.1)",0,10);
-    //TF1* f_test = new TF1("f_test","chiF_ndf2(x,1,[0],0.1)",0,10);
+    
+    TF1* f_test = new TF1("f_test","chiF_freefit(x,[0],[1],27,0.1)",0,10);
     vector<int> fpara = {1,2,3,4,27};
     vector<Color_t> color = {kBlack,kBlue,kGreen,kRed,kMagenta};
-    rep(i,5){
+    /*rep(i,5){
         f_test -> SetLineColor(color[i]);
         f_test -> SetParameter(0,fpara[i]);
         double p2 = 1.0/fpara[i];
@@ -72,6 +56,15 @@ void chif_test(){
             graph -> Draw();
         }
         else graph -> Draw("same");
-    }
+    }*/
     //f_test -> Draw();
+    c1 -> SetLogy();
+    f_test -> SetParameter(0,869);
+    for(int i=1;i<200;i++){
+        f_test -> SetParameter(1,0.1*i*0.04);
+        TGraph* graph = new TGraph(f_test);
+        if(i==1)graph -> Draw();
+        else graph -> Draw("same");
+    }
+    
 }

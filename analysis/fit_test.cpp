@@ -175,7 +175,7 @@ void fit_test(){
     double rsum = 0;
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
     vector<pair<double,double>> pairsigma;
-    for(int i=2;i<3;i++){
+    for(int i=1;i<25;i++){
         double dym = 0;
         int outnum = 0;
         TH1D* plus_ratio = new TH1D("plus_ratio","log10(plus_raito;d(chi2/ndf)/(chi2/ndf));Count",100,-20,0);
@@ -220,7 +220,8 @@ void fit_test(){
         int gcbin2 = 0;
         TH1D* chi_hist = new TH1D("chi_hist","chi_hist;chi2/Ndf;Count",100,0,10);
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=0;j<1;j++){
+        for(int j=0;j<4;j++){
+            
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
             for(int data=0;data<576;data++){
@@ -310,7 +311,7 @@ void fit_test(){
             //一回目のデータの処理
             TGraph* chi_freq1 = new TGraph;
             int cfnum1 = 0;
-            for(int bin=sb;bin<sb+1;bin+=dbin){
+            for(int bin=sb;bin<fb;bin+=dbin){
                 //cout << bin << " : 1" << endl;
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
@@ -322,32 +323,65 @@ void fit_test(){
                 if(hantei){
                     continue;
                 }
-
                 double yscale = 1000000;
                 TGraphErrors* spgraph = new TGraphErrors;
                 ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
                 TF1* f1 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
                 TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
                 ft.syoki_para(spgraph,f1,0);
-
                 rep(ite,10)spgraph -> Fit(f1,"MQN","",0,1);
-                cout << "before fit" << endl;
                 chi2 = f1 -> GetChisquare();
                 ndf = f1 -> GetNDF();
                 double res;
                 ft.rand_fit(spgraph,f2,100,10,0,1,res);
-                cout << "after fit" << endl;
-                chi_freq1 -> SetPoint(cfnum1,Freq1[bin],res);
-                cfnum1++;
-                
+                if(res>chi2/ndf)cout << "out" << endl;
+                chi_hist -> Fill(res);
             }
-            axrange axcf = {ifmin,ifmax,0,10,0,1,"chi_freq;Freq[GHz];chi2/NDF"};
-            st.Graph(chi_freq1,axcf);
-            chi_freq1 -> Draw("AP");
+            //2回目データのフィット
+            for(int bin=sb;bin<fb;bin+=dbin){
+                //cout << bin << " : 1" << endl;
+                bool hantei = false;
+                prep(k,bin,bin+dbin){
+                    if(c_toge2[j][k] || h_toge2[j][k]){
+                        hantei = true;
+                        break;
+                    }
+                }
+                if(hantei){
+                    continue;
+                }
+                double yscale = 1000000;
+                TGraphErrors* spgraph = new TGraphErrors;
+                ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
+                TF1* f1 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                ft.syoki_para(spgraph,f1,0);
+                rep(ite,10)spgraph -> Fit(f1,"MQN","",0,1);
+                chi2 = f1 -> GetChisquare();
+                ndf = f1 -> GetNDF();
+                double res;
+                ft.rand_fit(spgraph,f2,100,10,0,1,res);
+                if(res>chi2/ndf)cout << "out" << endl;
+                chi_hist -> Fill(res);
+            }
+            c1 -> SetLogy();
+            chi_hist -> Draw();
+            st.Hist(chi_hist);
+            double entnum = chi_hist -> GetEntries();
+            TF1* chif = new TF1("chif","chiF_freefit(x,[0],[1],27,0.1)");
+            chif -> FixParameter(0,entnum);
+            int a = chi_hist -> GetMaximumBin();
+            cout << "saihinnti = " << a << endl;
+            chif -> SetParameter(1,0.1*a*0.04);
+            chi_hist -> Fit(chif);
+            chif -> Draw("same");
             //cout << "----------" << endl;
-            
+            //グラフの保存
+            filesystem::current_path(savedir2);
+            string gname = "chi_hist"+to_string(i)+"_"+to_string(j)+".ps";
+            c1 -> SaveAs(gname.c_str());
+            filesystem::current_path(cdir);
         }
-
     
     }
     
