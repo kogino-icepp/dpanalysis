@@ -7,9 +7,26 @@ using namespace std;
 #define rep(i,n) for(int i=0;i<n;i++)
 #define prep(i,m,n) for(int i=m;i<n;i++)
 const int dbin = 30;
-
+typedef long long ll;
 class Fitter{
     public:
+    void GetThreeParameter(TGraphErrors* graph,TF1* f,int p0,int p1,int p2){
+        double x0 = graph -> GetPointX(p0);
+        double y0 = graph -> GetPointY(p0);
+        double x1 = graph -> GetPointX(p1);
+        double y1 = graph -> GetPointY(p1);
+        double x2 = graph -> GetPointX(p2);
+        double y2 = graph -> GetPointY(p2);
+        
+        double m = (y2-y0)/(x2-x0);
+        double n = (y0*x2-y2*x0)/(x2-x0);
+        double a = (y1-m*x1-n)/((x1-x0)*(x1-x2));
+        double b = (x0+x2-(m/a))/2;
+        double c = a*x0*x2+n-a*b*b;
+        f -> SetParameter(0,a);
+        f -> SetParameter(1,b);
+        f -> SetParameter(2,c);
+    }
     void syoki_para(TGraphErrors* graph,TF1* f,int bin){
         //y=a(x-x0)(x-x2)+mx+nが(x1,y1)を通る
         //取得するパラメータはy=a(x-b)^2+cの方
@@ -220,5 +237,83 @@ class Fitter{
             para.push_back(p);
         }
         return para;
+    }
+    //100回のイテレーションがconvite回分毎回収束しているかなんかいかにバラけているかを確認
+    void rand_conv1(TGraphErrors* graph,TF1* f,int convite){
+        map<double,int> mp;
+        rep(i,convite){
+            //rand_fit(graph,f,ite,fite,fm,fM, &res)
+            double res;
+            rand_fit(graph,f,100,10,0,1,res);
+            mp[res]++;
+        }
+        if((int)mp.size()==1){
+            cout << "Random_Fitting is convergent" << endl;
+        }
+        else{
+            for(auto v:mp){
+                cout << fixed;
+                cout << setprecision(10) <<v.first << " : " << v.second << endl;
+            }
+            cout << "-------" << endl;
+            //cout << "Random_Fitting is not convergent" << endl;
+        }
+    }
+    //必ず合う桁の確認、桁が緩いものに関してリストアップ
+    void rand_conv2(TGraphErrors* graph,TF1* f,int convite,TH1D* hist,int bin){
+        map<double,int> mp;
+        rep(i,convite){
+            //rand_fit(graph,f,ite,fite,fm,fM, &res)
+            double res;
+            rand_fit(graph,f,100,10,0,1,res);
+            mp[res]++;
+        }
+        
+        //10ずつ元のdouble keyにかけていきmpのサイズが1になるギリギリを見る
+        int keta = 0;
+        rep(i,20){
+            
+            map<ll,int> ketamp;
+            for(auto v:mp){
+                double res = v.first;
+                rep(j,i)res *= 10;
+                //cout << i << ": " << res << endl;
+                ketamp[res] += v.second;
+            }
+            
+            if(ketamp.size()==1){
+                if(i==19){
+                    cout << "correct keta : " << 20 << endl;
+                    break;
+                }
+                else keta++;
+            }
+            else{
+                cout << "correct keta : " << keta << endl;
+                if(keta<=5){
+                    cout << bin << endl;
+                    for(auto v: mp){
+                        cout << v.first << " : " << v.second << endl;
+                    }
+                }
+                break;
+            }
+        }
+        hist -> Fill(keta);
+    }
+    void section_fit(TGraphErrors* graph,TF1* f,double &res){
+        double cand = 1000000;
+        for(int p0=0;p0<10;p0++){
+            for(int p1=10;p1<20;p1++){
+                for(int p2=20;p2<30;p2++){
+                    GetThreeParameter(graph,f,p0,p1,p2);
+                    rep(i,5)graph -> Fit(f,"MQN","",0,1);
+                    double chi = f -> GetChisquare();
+                    double ndf = f -> GetNDF();
+                    cand = min(cand,chi/ndf);
+                }
+            }
+        }
+        res = cand;
     }
 };

@@ -3,6 +3,7 @@
         "__locale": "cpp",
         "chrono": "cpp",
         "iostream": "cpp",
-        "string": "cpp"
+        "string": "cpp",
+        "__tree": "cpp"
     }
 }
