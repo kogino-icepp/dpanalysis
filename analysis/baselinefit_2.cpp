@@ -179,7 +179,7 @@ void baselinefit_2(){
         double dym = 0;
         int outnum = 0;
         TH1D* plus_ratio = new TH1D("plus_ratio","log10(plus_raito;d(chi2/ndf)/(chi2/ndf));Count",100,-20,0);
-        TH1D* dist = new TH1D("dist","after-before;dist[d(chi2/ndf)];count",100,-10,10);
+        TH1D* dist = new TH1D("dist","after-before;dist[d(chi2/ndf)];count",100,-0.001,0.001);
         TH1D* white_hist = new TH1D("white","white_noise;dT[K];Count",100,-1,1);
         TH1D* white_hzen = new TH1D("white_hzen","white_noise;dT[K];Count",100,-1,1);
         TH1D* white_hkou = new TH1D("white_hkou","white_noise;dT[K];Count",100,-1,1);
@@ -322,7 +322,7 @@ void baselinefit_2(){
             double ysmax = -10;
             TH1D* ketah = new TH1D("hetah","ketah;PrecisionKeta;Count",21,0,20);
             //一回目のデータの処理
-            for(int bin=sb;bin<fb;bin+=dbin){
+            /*for(int bin=sb;bin<fb;bin+=dbin){
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
                     if(c_toge1[j][k] || h_toge1[j][k]){
@@ -339,17 +339,17 @@ void baselinefit_2(){
                 ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
                 //TF1* f1 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
                 TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                /*ft.syoki_para(spgraph,f1,0);
+                ft.syoki_para(spgraph,f1,0);
 
                 rep(ite,10)spgraph -> Fit(f1,"MQN","",0,1);
                 cout << "before fit" << endl;
                 chi2 = f1 -> GetChisquare();
-                ndf = f1 -> GetNDF();*/
+                ndf = f1 -> GetNDF();
                 //ft.rand_conv2(spgraph,f2,100,ketah,bin);
                 double res;
                 ft.section_fit(spgraph,f2,res);
                 chi_hist->Fill(res);
-            }
+            }*/
             
             //二回目のデータの処理　分離するのはいいとしてその基準と
             for(int bin=sb;bin<fb;bin+=dbin){
@@ -362,40 +362,26 @@ void baselinefit_2(){
                         break;
                     }
                 }
-                if(hantei){
-                    //cout << "out" << endl;
-                    outnum++;
-                    continue;
-                }
+                if(hantei)continue;
                 double yscale = 100000;
                 TGraphErrors* spgraph = new TGraphErrors;
                 ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
                 //cout << yscale << endl;
-                //TF1* f1 = new TF1("f","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                TF1* f1 = new TF1("f","[0]*(x-[1])*(x-[1])+[2]",0,1);
                 TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                /*ft.syoki_para(spgraph,f1,0);
-                double x = 100000;
-                rep(k,10){
-                    spgraph -> Fit(f1,"MQN","",0,1.0);
-                    chi2 = f1 -> GetChisquare();
-                    ndf = f1 -> GetNDF();
-                    x=chi2/ndf;
-                }
-                chi2 = f1 -> GetChisquare();
-                ndf = f1 -> GetNDF();
-                double res;
-                /ft.rand_fit(spgraph,f2,100,10,0,1.0,res);
-                chi_freq2 -> SetPoint(cfnum2,Freq2[bin],res);
-                cfnum2++;
-                chi_hist -> Fill(res);*/
+                
+                double res1;
+                ft.rand_fit(spgraph,f2,100,10,0,1.0,res1);
+                
                 //ft.rand_conv2(spgraph,f2,100,ketah,bin);
-                double res;
-                ft.section_fit(spgraph,f2,res);
-                chi_hist->Fill(res);
+                double res2;
+                ft.section_fit(spgraph,f2,res2);
+                dist -> Fill(res2-res1);
+                cout << res2-res1 << endl;
             }
             //(double x,double p0,double p1,double k,double bin){
 
-            TF1* chif = new TF1("chif","chiF_freefit(x,[0],[1],27,0.1)");
+            /*TF1* chif = new TF1("chif","chiF_freefit(x,[0],[1],27,0.1)");
             double entn = chi_hist -> GetEntries();
             int a = chi_hist -> GetMaximumBin();
             chif -> FixParameter(0,entn);
@@ -403,7 +389,10 @@ void baselinefit_2(){
             st.Hist(chi_hist);
             chi_hist -> Draw();
             chi_hist -> Fit(chif);
-            chif -> Draw("same");
+            chif -> Draw("same");*/
+            st.Hist(dist);
+            c1 -> SetLogy();
+            dist -> Draw();
         }
     }
 }

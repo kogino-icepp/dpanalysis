@@ -4,6 +4,7 @@
         "chrono": "cpp",
         "iostream": "cpp",
         "string": "cpp",
-        "__tree": "cpp"
+        "__tree": "cpp",
+        "new": "cpp"
     }
 }
