@@ -5,6 +5,18 @@
         "iostream": "cpp",
         "string": "cpp",
         "__tree": "cpp",
-        "new": "cpp"
+        "new": "cpp",
+        "array": "cpp",
+        "istream": "cpp",
+        "locale": "cpp",
+        "memory": "cpp",
+        "tuple": "cpp",
+        "variant": "cpp",
+        "__functional_base": "cpp",
+        "utility": "cpp",
+        "vector": "cpp",
+        "stdexcept": "cpp",
+        "iosfwd": "cpp",
+        "ostream": "cpp"
     }
 }

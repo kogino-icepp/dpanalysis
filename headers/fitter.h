@@ -1,6 +1,7 @@
 #include <iostream>
 #include <random>
 #include "p_func.h"
+#include "setting.h"
 #include <TMath.h>
 #include <TROOT.h>
 using namespace std;
@@ -8,6 +9,8 @@ using namespace std;
 #define prep(i,m,n) for(int i=m;i<n;i++)
 const int dbin = 30;
 typedef long long ll;
+string savedirt = "/Users/oginokyousuke/data/chi_hist/";
+Setting st;
 class Fitter{
     public:
     void GetThreeParameter(TGraphErrors* graph,TF1* f,int p0,int p1,int p2){
@@ -26,6 +29,25 @@ class Fitter{
         f -> SetParameter(0,a);
         f -> SetParameter(1,b);
         f -> SetParameter(2,c);
+    }
+    //点を与えたらパラメータを返してくれる関数
+    vector<double> GetQuadPara(vector<pair<double,double>> points){
+        vector<double> ans(3);
+        double x0 = points[0].first;
+        double y0 = points[0].second;
+        double x1 = points[1].first;
+        double y1 = points[1].second;
+        double x2 = points[2].first;
+        double y2 = points[2].second;
+        double m = (y2-y0)/(x2-x0);
+        double n = (y0*x2-y2*x0)/(x2-x0);
+        double a = (y1-m*x1-n)/((x1-x0)*(x1-x2));
+        double b = (x0+x2-(m/a))/2;
+        double c = a*x0*x2+n-a*b*b;
+        ans[0] = a;
+        ans[1] = b;
+        ans[2] = c;
+        return ans;
     }
     void syoki_para(TGraphErrors* graph,TF1* f,int bin){
         //y=a(x-x0)(x-x2)+mx+nが(x1,y1)を通る
@@ -130,7 +152,7 @@ class Fitter{
     }
     void rand_fit(TGraphErrors* graph,TF1* f,int ite,int fite,double fm,double fM,double &res){
         syoki_para(graph,f,0);
-        rep(i,fite)graph -> Fit(f,"MQ","",fm,fM);
+        rep(i,fite)graph -> Fit(f,"MQN","",fm,fM);
         double chi2 = f -> GetChisquare();
         double ndf = f -> GetNDF();
         double chimin = chi2/ndf;
@@ -307,7 +329,7 @@ class Fitter{
             for(int p1=10;p1<20;p1++){
                 for(int p2=20;p2<30;p2++){
                     GetThreeParameter(graph,f,p0,p1,p2);
-                    rep(i,5)graph -> Fit(f,"MQN","",0,1);
+                    rep(i,5)graph -> Fit(f,"EQN","",0,1);
                     double chi = f -> GetChisquare();
                     double ndf = f -> GetNDF();
                     cand = min(cand,chi/ndf);
@@ -316,4 +338,72 @@ class Fitter{
         }
         res = cand;
     }
+    
+    void all_fit(TGraphErrors* graph,TF1*f,int ite,double &res){
+        //0以上bnum+selnum未満まで走査してくれる
+        int bnum = 27;
+        int selnum = 3;
+        vector<int> field;
+        rep(i,bnum)field.push_back(0);
+        rep(i,selnum)field.push_back(1);
+        res = 100000;
+        vector<double> minpara(3,0);
+        do{
+            vector<int> ans;
+            int cand_num = 0;
+            rep(i,field.size()){
+                if(field[i]==0)cand_num++;
+                if(field[i]==1){
+                    ans.push_back(cand_num);
+                    cand_num++;
+                }
+            }
+            //このパートでフィットをする
+            vector<pair<double,double>> points;
+            rep(j,selnum){
+                double x = graph -> GetPointX(ans[j]);
+                double y = graph -> GetPointY(ans[j]);
+                points.push_back({x,y});
+            }
+            vector<double> paras = GetQuadPara(points);
+            //cout << ans[0] << " " << ans[1] << " " << ans[2] << endl;
+            //cout << paras[0] << " " << paras[1] << " " << paras[2] << endl;
+            //cout << "---------------" << endl;
+            rep(j,selnum)f -> SetParameter(j,paras[j]);
+            rep(j,ite)graph -> Fit(f,"MQN","",0,1);
+            double chi2 = f -> GetChisquare();
+            double ndf = f -> GetNDF();
+            if(res>chi2/ndf){
+                res = chi2/ndf;
+                rep(j,selnum)minpara[j]=f->GetParameter(j);
+            }
+            
+        }while (next_permutation(field.begin(), field.end()));
+        rep(i,selnum)f->SetParameter(i,minpara[i]);
+    }
+
+};
+class CheckData{
+    public:
+    void SaveTwoGraph(TGraphErrors* graph,TF1* f1,TF1* f2,string title,TCanvas* c1){
+        axrange axstg = {0,1,0,1,0,1,"rand_fit vs section_fit;xscale[a.u];yscale[a.u]"};
+        
+        st.GraphErrors(graph,axstg);
+        graph -> SetMarkerColor(kGreen);
+        graph -> SetMarkerStyle(20);
+        graph -> SetMarkerSize(0.8);
+        graph -> Draw("AP");
+        f1 -> SetLineColor(kBlue);
+        f1 -> Draw("same");
+        f2 -> SetLineColor(kRed);
+        f2 -> Draw("same");
+        double p1[3],p2[3];
+        rep(i,3){
+            p1[i] = f1 -> GetParameter(i);
+            p2[i] = f2 -> GetParameter(i);
+            cout << "p" << i << " : " << p1[i] << " <==> " << p2[i] << endl; 
+        }
+        filesystem::current_path(savedirt);
+        c1 -> SaveAs(title.c_str());
+    } 
 };
