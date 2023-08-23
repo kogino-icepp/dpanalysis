@@ -179,7 +179,7 @@ void allfit_test(){
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
     vector<pair<double,double>> pairsigma;
     
-    for(int i=1;i<2;i++){
+    for(int i=2;i<25;i++){
         double dym = 0;
         int outnum = 0;
         TH1D* plus_ratio = new TH1D("plus_ratio","log10(plus_raito;d(chi2/ndf)/(chi2/ndf));Count",100,-20,0);
@@ -225,7 +225,7 @@ void allfit_test(){
         int gcbin2 = 0;
         TH1D* chi_hist = new TH1D("chi_hist","chi_hist;chi2/Ndf;Count",100,0,10);
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=0;j<1;j++){
+        for(int j=0;j<4;j++){
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
             for(int data=0;data<576;data++){
@@ -324,12 +324,15 @@ void allfit_test(){
             string tfname1 = "fit_res"+to_string(i)+"_"+to_string(j)+"_1.root";
             TFile *fout1 = new TFile(tfname1.c_str(),"recreate");
             TTree *tree1 = new TTree("tree1","tree1");
-            double aF1,bF1,cF1,chiF1;
+            double aF1,bF1,cF1,chiF1,freqF1;
+            int binF1;
             //chiはndfで割った後の値
             tree1 -> Branch("a",&aF1,"a/D");
             tree1 -> Branch("b",&bF1,"b/D");
             tree1 -> Branch("c",&cF1,"c/D");
             tree1 -> Branch("chi",&chiF1,"chi/D");
+            tree1 -> Branch("bin",&binF1,"bin/I");
+            tree1 -> Branch("freq",&freqF1,"freq/D");
             
             double ysmax = -10;
             //TH1D* ketah = new TH1D("hetah","ketah;PrecisionKeta;Count",21,0,20);
@@ -359,34 +362,35 @@ void allfit_test(){
                 cF1 = f2 -> GetParameter(2);
                 //cout << "parameter's are" << endl;
                 //cout << aF << " " << bF << " " << cF << endl;
-                chiF = res2;
-                
+                chiF1 = res2;
+                binF1 = bin;
+                freqF1 = Freq1[bin];
+                cout << aF1 << " " << bF1 << " " << cF1 << " " << chiF1 << " " << binF1 << endl;
                 tree1 -> Fill();
                 chi_hist -> Fill(res2);
                 dist -> Fill(res2-res1);
-                /*cout << fixed;
-                cout << setprecision(10) << res1 << " : " << res2 << endl;*/
             }
             filesystem::current_path(savedirroot);
             //tree1->SaveAs(tfname1.c_str());
             tree1 -> Write();
             fout1 -> Close();
-        
-
 
             string tfname2 = "fit_res"+to_string(i)+"_"+to_string(j)+"_2.root";
             TFile *fout2 = new TFile(tfname2.c_str(),"recreate");
             TTree *tree2 = new TTree("tree2","tree2");
-            double aF2,bF2,cF2,chiF2;
-            tree2 -> Branch("a",&aF,"a/D");
-            tree2 -> Branch("b",&bF,"b/D");
-            tree2 -> Branch("c",&cF,"c/D");
-            tree2 -> Branch("chi",&chiF,"chi/D");
-            
+            double aF2,bF2,cF2,chiF2,freqF2;
+            int binF2;
+            tree2 -> Branch("a",&aF2,"a/D");
+            tree2 -> Branch("b",&bF2,"b/D");
+            tree2 -> Branch("c",&cF2,"c/D");
+            tree2 -> Branch("chi",&chiF2,"chi/D");
+            tree2 -> Branch("bin",&binF2,"bin/I");
+            tree2 -> Branch("freq",&freqF2,"freq/D");
             //double ysmax = -10;
             //TH1D* ketah = new TH1D("hetah","ketah;PrecisionKeta;Count",21,0,20);
             //2回目のデータの処理
             for(int bin=sb;bin<fb;bin+=dbin){
+                cout << 2 << " " << bin << endl;
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
                     if(c_toge2[j][k] || h_toge2[j][k]){
@@ -408,14 +412,14 @@ void allfit_test(){
                 aF2 = f2 -> GetParameter(0);
                 bF2 = f2 -> GetParameter(1);
                 cF2 = f2 -> GetParameter(2);
-                chiF = res2;
-                
+                chiF2 = res2;
+                binF2 = bin;
+                freqF2 = Freq2[bin];
                 tree2 -> Fill();
                 chi_hist -> Fill(res2);
                 dist -> Fill(res2-res1);
                 cout << fixed;
-                cout << setprecision(10) << res1 << " : " << res2 << endl;
-                cout << bin << endl;
+                cout << aF2 << " " << bF2 << " " << cF2 << " " << chiF2 << " " << binF2 << endl;
             }
             //tree2->SaveAs(tfname2.c_str());
             tree2 -> Write();
@@ -433,5 +437,4 @@ void allfit_test(){
         gname = "all_chi"+to_string(i)+".ps";
         c1 -> SaveAs(gname.c_str());
     }
-    
 }
