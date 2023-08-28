@@ -1,6 +1,6 @@
 #include <iostream>
 #include <queue>
-#include "../headers/setting.h"
+
 #include "../headers/fitter.h"
 #include <TROOT.h>
 using namespace std;
@@ -88,7 +88,7 @@ void basic_spec2(){
     st.markerstyle = 20;
     st.color = kGreen;
     queue<int> que;
-    for(int i=1;i<25;i++){
+    for(int i=2;i<3;i++){
         string cdir=dir+"band"+to_string(i);
         filesystem::current_path(cdir);
         double f[nbin][4],prec[nbin][4],dprec[nbin][4];
@@ -181,7 +181,7 @@ void basic_spec2(){
             //c1 -> SetLogy();
             st.Graph(pgraph1,ax);
             pgraph1 -> Draw("AL");
-            filesystem::current_path(savedird);
+            /*filesystem::current_path(savedird);
             string gname = "mirror_temp"+to_string(i)+"_"+to_string(j)+"_1.ps";
             c1 -> SaveAs(gname.c_str());
 
@@ -192,7 +192,7 @@ void basic_spec2(){
             //c1 -> SetLogy();
             gname = "mirror_temp"+to_string(i)+"_"+to_string(j)+"_2.ps";
             c1 -> SaveAs(gname.c_str());
-            filesystem::current_path(cdir);
+            filesystem::current_path(cdir);*/
         }
     }
 }

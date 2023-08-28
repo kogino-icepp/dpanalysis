@@ -5,12 +5,7 @@
 #include <format>
 #include "setting.h"
 #include <TROOT.h>
-#include <TFile.h>
-#include <TF1.h>
-#include <TH1.h>
-#include <TCanvas.h>
-#include <TTree.h>
-#include <TStyle.h>
+
 using namespace std;
 #define rep(i,n) for(int i=0;i<n;i++)
 #define prep(i,m,n) for(int i=m;i<n;i++)

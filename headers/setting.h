@@ -136,23 +136,5 @@ public:
         }
         return chi2;
     }
-    void pfield(TGraphErrors*graph,TGraph2D* graph2,TF1* f,double offset,axrange ax){
-        int bin = 0;
-        double dx = (ax.xmax-ax.xmin)/100;
-        double dy = (ax.ymax-ax.ymin)/100;
-        cout << dx << " " << dy << endl;
-        for(double i=ax.xmin;i<ax.xmax;i+=dx){
-            for(double j=ax.ymin;j<ax.ymax;j+=dy){
-                f -> SetParameter(0,i);
-                f -> SetParameter(1,j);
-                f -> SetParameter(2,offset);
-                double chi2 = ChiValue(graph,f,0);
-                int ndf = graph -> GetN();
-                ndf -= 3;
-                //cout << i << " " << j << " " << chi2/ndf << endl;
-                graph2 -> SetPoint(bin,i,j,chi2/ndf);
-                bin++;
-            }
-        }
-    }
+    
 };

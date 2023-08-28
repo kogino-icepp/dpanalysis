@@ -365,6 +365,7 @@ void allfit_test(){
                 chiF1 = res2;
                 binF1 = bin;
                 freqF1 = Freq1[bin];
+
                 cout << aF1 << " " << bF1 << " " << cF1 << " " << chiF1 << " " << binF1 << endl;
                 tree1 -> Fill();
                 chi_hist -> Fill(res2);
@@ -422,10 +423,10 @@ void allfit_test(){
                 cout << aF2 << " " << bF2 << " " << cF2 << " " << chiF2 << " " << binF2 << endl;
             }
             //tree2->SaveAs(tfname2.c_str());
-            tree2 -> Write();
-            fout2 -> Close();
+            /*tree2 -> Write();
+            fout2 -> Close();*/
         }
-        st.Hist(dist);
+        /*st.Hist(dist);
         c1 -> SetLogy();
         dist -> Draw();
         filesystem::current_path(savedirt);
@@ -435,6 +436,6 @@ void allfit_test(){
         c1 -> SetLogy();
         chi_hist -> Draw();
         gname = "all_chi"+to_string(i)+".ps";
-        c1 -> SaveAs(gname.c_str());
+        c1 -> SaveAs(gname.c_str());*/
     }
 }

@@ -246,6 +246,7 @@ class Fitter{
             x = (x-xmin)/xrange;
             y = (y-ymin)/yrange;
             graph -> SetPoint(bin-sbin,x,y);
+            
             //cout << x << " " << y << endl;
             graph -> SetPointError(bin-sbin,0,0.1/yrange);
         }

@@ -177,13 +177,16 @@ void baselinefit_2(){
     double rsum = 0;
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
     vector<pair<double,double>> pairsigma;
-    
+    //sigmaとchi2/ndfのエラーを調べる
+    TGraphErrors* sigma_scale = new TGraphErrors;
+    int ssbin = 0;
+    axrange axss = {0,0.5,0,5,0,1};
     for(int i=1;i<25;i++){
         double dym = 0;
         int outnum = 0;
         TH1D* plus_ratio = new TH1D("plus_ratio","log10(plus_raito;d(chi2/ndf)/(chi2/ndf));Count",100,-20,0);
         TH1D* dist = new TH1D("dist","after-before;dist[d(chi2/ndf)];count",100,-0.000001,0.000001);
-        TH1D* white_hist = new TH1D("white","white_noise;dT[K];Count",100,-1,1);
+        
         TH1D* white_hzen = new TH1D("white_hzen","white_noise;dT[K];Count",100,-1,1);
         TH1D* white_hkou = new TH1D("white_hkou","white_noise;dT[K];Count",100,-1,1);
         TH1D* yscale_hist = new TH1D("yscale_hist","yscale;yscale[K];Count",100,0,15);
@@ -319,7 +322,8 @@ void baselinefit_2(){
             //setting.GraphErrors(pgraph1,ifmin,ifmax,0,100);
             //pgraph1 -> SetTitle("Prec;Freq[GHz];Prec[K]");
             //pgraph1 -> Draw("AP");
-            
+            TH1D* whist = new TH1D("white","white_noise;dT[K];Count",100,-1,1);
+            TH1D* chihist = new TH1D("chihist","chihist;chi2/NDF;Coutn",100,0,10);
             double fm,fM;
             double chi2,chi2_d,chi22;
             int ndf,ndf_d,ndf2;
@@ -337,34 +341,30 @@ void baselinefit_2(){
                 if(hantei){
                     continue;
                 }
-
                 double yscale = 1000000;
                 TGraphErrors* spgraph = new TGraphErrors;
                 ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
-                TF1* f1 = new TF1("f","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                double res1;
-                    //(graph,f,ite,fite,fm,dfM,double &res){
-                ft.rand_fit(spgraph,f1,100,5,0,1,res1);
+                
                 TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                
                 
                 //ft.rand_conv2(spgraph,f2,100,ketah,bin);
                 double res2;
-                ft.section_fit(spgraph,f2,res2);
-                dist -> Fill(res2-res1);
-                if(res2-res1>0.000001){
-                    revresult.push_back({j,bin,res2-res1});
-                    dist -> Fill(0.000000999);
+                ft.rand_fit(spgraph,f2,100,5,0,1,res2);
+                chihist -> Fill(res2);
+                rep(k,dbin){
+                    double xValue = spgraph -> GetPointX(k);
+                    double yValue = f2 -> Eval(xValue);
+                    double yTrue = spgraph -> GetPointY(k);
+                    whist -> Fill((yValue-yTrue)*yscale);
                 }
-                if(res2-res1<-0.000001){
-                    //revresult.push_back({j,bin,res2-res1});
-                    dist -> Fill(-0.000000999);
-                }
+                
             }
             
+            //p1は直接のスケールではない
             //二回目のデータの処理　分離するのはいいとしてその基準と
             for(int bin=sb;bin<fb;bin+=dbin){
                 //cout << Freq2[bin] << endl;
-                double dym;
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
                     if(c_toge2[j][k] || h_toge2[j][k]){
@@ -376,34 +376,48 @@ void baselinefit_2(){
                 double yscale = 100000;
                 TGraphErrors* spgraph = new TGraphErrors;
                 ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
-                //cout << yscale << endl;
-                TF1* f1 = new TF1("f","[0]*(x-[1])*(x-[1])+[2]",0,1);
                 TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                
-                double res1;
-                ft.rand_fit(spgraph,f1,100,5,0,1,res1);
                 double res2;
-                ft.section_fit(spgraph,f2,res2);
-                dist -> Fill(res2-res1);
-                if(res2-res1>0.000001){
-                    revresult.push_back({j,bin,res2-res1});
-                    dist -> Fill(0.000000999);
-                }
-                if(res2-res1<-0.000001){
-                    //revresult.push_back({j,bin,res2-res1});
-                    dist -> Fill(-0.000000999);
+                ft.rand_fit(spgraph,f2,100,5,0,1,res2);
+                chihist -> Fill(res2);
+                rep(k,dbin){
+                    double xValue = spgraph -> GetPointX(k);
+                    double yValue = f2 -> Eval(xValue);
+                    double yTrue = spgraph -> GetPointY(k);
+                    whist -> Fill((yValue-yTrue)*yscale);
                 }
             }
+            TF1* gausfit = new TF1("gausfit","gaus",-1,1);
+            TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],27,0.1)",0,10);
+            whist -> Draw();
+            whist -> Fit(gausfit);
+            double sigma = gausfit -> GetParameter("Sigma");
+            double esigma = gausfit -> GetParError(2);
+            
+            double hnum = chihist -> GetEntries();
+            chifit -> FixParameter(0,hnum);
+            int maxbin = chihist -> GetMaximumBin();
+            double xmax = maxbin*0.1;
+            cout << "xmax : " << xmax << endl;
+            double a = xmax*1.0/(27-2);
+            chifit -> SetParameter(1,a);
+            chihist -> Draw();
+            chihist -> Fit(chifit);
+            double as = chifit -> GetParameter(1);
+            as *= 27;
+            double eas = chifit -> GetParError(1);
+            sigma_scale -> SetPoint(ssbin,sigma,as);
+            sigma_scale -> SetPointError(ssbin,esigma,eas);
+            ssbin++;
         }
-        for(auto v:revresult){
-            cout << get<0>(v) << " " << get<1>(v)<< " " << get<2>(v) << endl;
-        }
-        st.Hist(dist);
-        c1 -> SetLogy();
-        dist -> Draw();
-        filesystem::current_path(savedir2);
-        string gname = "rand_section"+to_string(i)+".ps";
-        c1 -> SaveAs(gname.c_str());
+        
     }
-    
+    axss.title = "sigma_scale;sigma;scale";
+    st.GraphErrors(sigma_scale,axss);
+    sigma_scale -> Draw("AP");
+    TF1* quadf = new TF1("quadf","[0]*(x-[1])*(x-[1])+[2]",0,0.5);
+    quadf -> SetParameter(1,0.00001);
+    quadf -> SetParameter(2,0.00001);
+    quadf -> SetParameter(0,1.00000);
+    sigma_scale -> Fit(quadf);
 }
