@@ -254,6 +254,7 @@ void MakeWhite(int i,int j,int p){
     //ホワイトノイズまでは取れるようになったのでここからエラーつけてピークフィットするように改良する
     TH1D* whist = new TH1D("whist","whist;white_noise[K];Count",100,-1,1);
     st.Hist(whist);
+    TGraphErrors* wgraph = new TGraphErrors;
     for(int bin=sb;bin<fb;bin+=dbin){
         TF1* quadf = new TF1("quadf","[0]*(x-[1])*(x-[1])+[2]",0,1);
         if(vpfreq[bin]==DINF)continue;
@@ -274,6 +275,7 @@ void MakeWhite(int i,int j,int p){
             whist -> Fill((yValue-yTrue)*yscale);
         }
         st.GraphErrors(spgraph,axscale);
+
         /*st.Hist(whist);
         whist -> Fit("gaus");
         whist -> Draw();*/
