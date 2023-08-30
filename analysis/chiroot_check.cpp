@@ -38,10 +38,22 @@ const double kb=1.38*pow(10,-23);
 const double df=88.5*pow(10,3);
 const double Tc=76;
 const double Th=297;
-/*void PrintEntryInfo(const char* filename, const char* treeName, Int_t numEntriesToShow) {
-    TFile*file;
-    TTree*tree;
-    
+const double DINF=1e9;
+const int INF = 1e9;
+void PrintEntryInfo(const char* filename, const char* treeName, Int_t numEntriesToShow) {
+
+    TFile*file = TFile::Open(filename);
+    if (!file) {
+        cerr << "Error opening file " << filename << std::endl;
+        return;
+    }
+    // Get the TTree
+    TTree*tree = dynamic_cast<TTree*>(file->Get(treeName));
+    if (!tree) {
+        cerr << "Error getting tree " << treeName << " from file " << filename << std::endl;
+        file->Close();
+        return;
+    }
     // Get the number of entries in the tree
     Int_t numEntries = tree->GetEntries();
     // Determine the number of entries to display
@@ -51,19 +63,23 @@ const double Th=297;
         tree->GetEntry(entry);
         // Print entry information here
         // For example, print the values of specific branches
-        Double_t a, b, c, chi;
+        Double_t a, b, c, chi,freq;
+        Int_t bin;
         tree->SetBranchAddress("a", &a);
         tree->SetBranchAddress("b", &b);
         tree->SetBranchAddress("c", &c);
         tree->SetBranchAddress("chi", &chi);
+        tree->SetBranchAddress("freq",&freq);
+        tree->SetBranchAddress("bin",&bin);
         //tree->SetBranchAddress("ndf", &ndf);
         // Print the values for this entry
-        cout << "Entry " << entry << ": a = " << a << ", b = " << b << ", c = " << c
-                << ", chi = " << chi << endl;
+        cout << "==================" << endl;
+        cout << "Entry " << entry << ": a = " << a << ", b = " << b << ", c = " << c<< endl;
+        cout << "Freq : " << freq << " bin :" << bin << endl;
     }
     // Close the file
     file->Close();
-}*/
+}
 
 void check_chi(const char* filename,const char* treeName){
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
@@ -172,7 +188,7 @@ void GetBasicData(int i,int j,int p,TGraph*prec){
         long double gain=(hot[bin]-cold[bin])/(2*kb*(Th-Tc)*df);
         double psys=(cold[bin]/gain)-2*kb*Tc*df;
         
-        prec -> SetPoint(bin,Freq[bin],((mirror[bin]/gain)-psys)/(2*kb*df));
+        prec -> SetPoint(bin-sb,Freq[bin],((mirror[bin]/gain)-psys)/(2*kb*df));
         //cout << Freq[bin] << " " <<((mirror[bin]/gain)-psys)/(2*kb*df) << endl;
         
     }
@@ -202,7 +218,7 @@ void MakeWhite(int i,int j,int p){
     }
     Int_t numEntries = tree->GetEntries();
     vector<vector<double>> vparas(3,vector<double>(nbin));
-    vector<double> vpfreq(nbin);
+    vector<double> vpfreq(nbin,DINF);
     vector<int> vbin(nbin);
     rep(i,numEntries){
         tree -> GetEntry(i);
@@ -226,7 +242,7 @@ void MakeWhite(int i,int j,int p){
     2. 念の為一応フィットしてから差分を取る
     3. ヒストグラムに詰めて経過観察
     */
-    int testbin = 3065;
+    int testbin = 3035;
     TGraph* pgraph = new TGraph;
     double ifmin = 213.9+2*i;
     double ifmax = 216.1+2*i;
@@ -235,18 +251,19 @@ void MakeWhite(int i,int j,int p){
     st.Graph(pgraph,axraw);
     //pgraph->Draw("AL");
     //棘があってパスしている場合もあるのでそれを排除するアルゴ欲しい
-    
-    prep(bin,testbin,testbin+1){
+    //ホワイトノイズまでは取れるようになったのでここからエラーつけてピークフィットするように改良する
+    TH1D* whist = new TH1D("whist","whist;white_noise[K];Count",100,-1,1);
+    st.Hist(whist);
+    for(int bin=sb;bin<fb;bin+=dbin){
         TF1* quadf = new TF1("quadf","[0]*(x-[1])*(x-[1])+[2]",0,1);
-        TH1D* whist = new TH1D("whist","whist;white_noise[K];Count",100,-1,1);
+        if(vpfreq[bin]==DINF)continue;
         cout << vparas[0][bin] << " " << vparas[1][bin] << " " << vparas[2][bin] << endl;
         quadf -> SetParameter(0,vparas[0][bin]);
         quadf -> SetParameter(1,vparas[1][bin]);
         quadf -> SetParameter(2,vparas[2][bin]);
-        
         TGraphErrors* spgraph = new TGraphErrors;
         double yscale;
-        ft.make_scale(spgraph,pgraph,bin,yscale);
+        ft.make_scale(spgraph,pgraph,bin-sb,yscale);
         // /spgraph -> Fit(quadf,"M","",0,1);
 
         //この辺に差分取るアルゴ欲しい(スケール化した後なのか一旦戻すのか→戻そう)
@@ -257,13 +274,12 @@ void MakeWhite(int i,int j,int p){
             whist -> Fill((yValue-yTrue)*yscale);
         }
         st.GraphErrors(spgraph,axscale);
-        spgraph -> Draw("AP");
-        quadf -> Draw("same");
         /*st.Hist(whist);
         whist -> Fit("gaus");
         whist -> Draw();*/
     }
-
+    c1 -> SetLogy();
+    whist -> Draw();
 }
 void chiroot_check() {
     Setting st;
@@ -273,11 +289,11 @@ void chiroot_check() {
     filesystem::path path=filesystem::current_path();
     string root_dir = "/Users/oginokyousuke/data/root_file/";
     filesystem::current_path(root_dir);
-    const char* filename = "fit_res2_1_1.root"; // Specify the path to your ROOT file
+    const char* filename = "fit_res2_2_1.root"; // Specify the path to your ROOT file
     const char* treeName = "tree1"; // Specify the name of the TTree
     Int_t numEntriesToShow = 10; // Specify the number of entries to show
-    //PrintEntryInfo(filename, treeName, numEntriesToShow);
-    MakeWhite(2,1,1);
+    PrintEntryInfo(filename, treeName, numEntriesToShow);
+    MakeWhite(2,0,1);
     //check_chi(filename,treeName);
-    
+    //ここでも違うファイルに改めてでもいいので保存したデータを用いてフィットしてホワイトノイズを出していきたい→ピークサーチもいずれ実装
 }

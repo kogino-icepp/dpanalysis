@@ -84,7 +84,7 @@ public:
         hist -> GetXaxis() -> SetLabelSize(0.08);
         hist -> GetXaxis() -> SetTitleOffset(0.8);
         hist -> GetXaxis() -> SetTitleSize(0.08);
-        hist -> GetYaxis() -> SetTitleOffset(0.7);
+        hist -> GetYaxis() -> SetTitleOffset(0.8);
         hist -> GetYaxis() -> SetLabelSize(0.08);
         hist -> GetYaxis() -> SetTitleSize(0.08);
         hist -> GetXaxis() -> SetNdivisions(505);

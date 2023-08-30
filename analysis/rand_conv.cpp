@@ -137,7 +137,7 @@ Double_t MyFunction(double x,double p0,double p1){
 1. coldとhotでアウトなものは無条件に抜く
 2. mirrorに関しては4回分データを走査し、
 */
-void allfit_test(){
+void rand_conv(){
     //種々のヘッダー関数を用意
     Setting st;
     st.dot_size = 0.8;
@@ -161,7 +161,6 @@ void allfit_test(){
     string savedir = "/Users/oginokyousuke/data/baseline_change/";
     string savedir2 = "/Users/oginokyousuke/data/rand_fit/";
     string savedird = "/Users/oginokyousuke/data/basic_data/";
-    string savedirroot = "/Users/oginokyousuke/data/root_file/";
 
     filesystem::current_path(dir);
 
@@ -178,13 +177,16 @@ void allfit_test(){
     double rsum = 0;
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
     vector<pair<double,double>> pairsigma;
-    
-    for(int i=3;i<25;i++){
+    //sigmaとchi2/ndfのエラーを調べる
+    TGraphErrors* sigma_scale = new TGraphErrors;
+    int ssbin = 0;
+    axrange axss = {0,0.5,0,5,0,1};
+    for(int i=1;i<2;i++){
         double dym = 0;
         int outnum = 0;
         TH1D* plus_ratio = new TH1D("plus_ratio","log10(plus_raito;d(chi2/ndf)/(chi2/ndf));Count",100,-20,0);
         TH1D* dist = new TH1D("dist","after-before;dist[d(chi2/ndf)];count",100,-0.000001,0.000001);
-        TH1D* white_hist = new TH1D("white","white_noise;dT[K];Count",100,-1,1);
+        
         TH1D* white_hzen = new TH1D("white_hzen","white_noise;dT[K];Count",100,-1,1);
         TH1D* white_hkou = new TH1D("white_hkou","white_noise;dT[K];Count",100,-1,1);
         TH1D* yscale_hist = new TH1D("yscale_hist","yscale;yscale[K];Count",100,0,15);
@@ -226,7 +228,6 @@ void allfit_test(){
         TH1D* chi_hist = new TH1D("chi_hist","chi_hist;chi2/Ndf;Count",100,0,10);
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
         for(int j=0;j<4;j++){
-            filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
             for(int data=0;data<576;data++){
@@ -321,122 +322,88 @@ void allfit_test(){
             //setting.GraphErrors(pgraph1,ifmin,ifmax,0,100);
             //pgraph1 -> SetTitle("Prec;Freq[GHz];Prec[K]");
             //pgraph1 -> Draw("AP");
-            //後々のためにフィットで得られた諸データをrootファイルで保存したい
-            filesystem::current_path(savedirroot);
-            string tfname1 = "fit_res"+to_string(i)+"_"+to_string(j)+"_1.root";
-            TFile *fout1 = new TFile(tfname1.c_str(),"recreate");
-            TTree *tree1 = new TTree("tree1","tree1");
-            double aF1,bF1,cF1,chiF1,freqF1;
-            int binF1;
-            //chiはndfで割った後の値
-            tree1 -> Branch("a",&aF1,"a/D");
-            tree1 -> Branch("b",&bF1,"b/D");
-            tree1 -> Branch("c",&cF1,"c/D");
-            tree1 -> Branch("chi",&chiF1,"chi/D");
-            tree1 -> Branch("bin",&binF1,"bin/I");
-            tree1 -> Branch("freq",&freqF1,"freq/D");
-            
+            TH1D* whist = new TH1D("white","white_noise;dT[K];Count",100,-1,1);
+            TH1D* chihist = new TH1D("chihist","chihist;chi2/NDF;Coutn",100,0,10);
+            double fm,fM;
+            double chi2,chi2_d,chi22;
+            int ndf,ndf_d,ndf2;
             double ysmax = -10;
-            //TH1D* ketah = new TH1D("hetah","ketah;PrecisionKeta;Count",21,0,20);
+            TH1D* ketah = new TH1D("hetah","ketah;PrecisionKeta;Count",21,0,20);
             //一回目のデータの処理
-            
-            for(int bin=sb;bin<fb;bin+=dbin){
-                bool hantei = false;
-                prep(k,bin,bin+dbin){
-                    if(c_toge1[j][k] || h_toge1[j][k]){
-                        hantei = true;
-                        break;
+            vector<double> base_chi(nbin,100);
+            vector<int> itevec = {0,10,50,100,500,1000};
+            rep(itenum,6){
+                for(int bin=sb;bin<fb;bin+=dbin){
+                    bool hantei = false;
+                    prep(k,bin,bin+dbin){
+                        if(c_toge1[j][k] || h_toge1[j][k]){
+                            hantei = true;
+                            break;
+                        }
                     }
+                    if(hantei){
+                        continue;
+                    }
+                    TGraphErrors* spgraph = new TGraphErrors;
+                    ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
+                    TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                    double res2;
+                    ft.rand_fit(spgraph,f2,itevec[itenum],5,0,1,res2);
                 }
-                if(hantei){
-                    continue;
-                }
-                double yscale = 100000;
-                TGraphErrors* spgraph = new TGraphErrors;
-                ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
-                double res1,res2;
-                TF1* f1 = new TF1("f1","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                ft.rand_fit(spgraph,f1,100,5,0,1,res1);
-                ft.all_fit(spgraph,f2,5,res2);
-                aF1 = f2 -> GetParameter(0);
-                bF1 = f2 -> GetParameter(1);
-                cF1 = f2 -> GetParameter(2);
-                //cout << "parameter's are" << endl;
-                //cout << aF << " " << bF << " " << cF << endl;
-                chiF1 = res2;
-                binF1 = bin;
-                freqF1 = Freq1[bin];
-                cout << freqF1 << endl;
-                cout << aF1 << " : " << bF1 << " : " << cF1 << endl;
-                tree1 -> Fill();
-                chi_hist -> Fill(res2);
                 
+                //p1は直接のスケールではない
+                //二回目のデータの処理　分離するのはいいとしてその基準と
+                for(int bin=sb;bin<fb;bin+=dbin){
+                    //cout << Freq2[bin] << endl;
+                    bool hantei = false;
+                    prep(k,bin,bin+dbin){
+                        if(c_toge2[j][k] || h_toge2[j][k]){
+                            hantei = true;
+                            break;
+                        }
+                    }
+                    if(hantei)continue;
+                    double yscale = 100000;
+                    TGraphErrors* spgraph = new TGraphErrors;
+                    ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
+                    TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                    double res2;
+                    ft.rand_fit(spgraph,f2,itevec[itenum],5,0,1,res2);
+                    
+                }
             }
             
-            //tree1->SaveAs(tfname1.c_str());
-            tree1 -> Write();
-            fout1 -> Close();
-
-            /*string tfname2 = "fit_res"+to_string(i)+"_"+to_string(j)+"_2.root";
-            TFile *fout2 = new TFile(tfname2.c_str(),"recreate");
-            TTree *tree2 = new TTree("tree2","tree2");
-            double aF2,bF2,cF2,chiF2,freqF2;
-            int binF2;
-            tree2 -> Branch("a",&aF2,"a/D");
-            tree2 -> Branch("b",&bF2,"b/D");
-            tree2 -> Branch("c",&cF2,"c/D");
-            tree2 -> Branch("chi",&chiF2,"chi/D");
-            tree2 -> Branch("bin",&binF2,"bin/I");
-            tree2 -> Branch("freq",&freqF2,"freq/D");
-            //double ysmax = -10;
-            //TH1D* ketah = new TH1D("hetah","ketah;PrecisionKeta;Count",21,0,20);
-            //2回目のデータの処理
-            for(int bin=sb;bin<fb;bin+=dbin){
-                cout << 2 << " " << bin << endl;
-                bool hantei = false;
-                prep(k,bin,bin+dbin){
-                    if(c_toge2[j][k] || h_toge2[j][k]){
-                        hantei = true;
-                        break;
-                    }
-                }
-                if(hantei){
-                    continue;
-                }
-                double yscale = 100000;
-                TGraphErrors* spgraph = new TGraphErrors;
-                ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
-                double res2;
-                TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                
-                ft.all_fit(spgraph,f2,5,res2);
-                aF2 = f2 -> GetParameter(0);
-                bF2 = f2 -> GetParameter(1);
-                cF2 = f2 -> GetParameter(2);
-                chiF2 = res2;
-                binF2 = bin;
-                freqF2 = Freq2[bin];
-                tree2 -> Fill();
-                chi_hist -> Fill(res2);
-                cout << fixed;
-                cout << freqF2 << endl;
-                cout << aF2 << " : " << bF2 << " : " << cF2 << endl;
-            }
-            //tree2->SaveAs(tfname2.c_str());
-            tree2 -> Write();
-            fout2 -> Close();*/
+            TF1* gausfit = new TF1("gausfit","gaus",-1,1);
+            TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],27,0.1)",0,10);
+            whist -> Draw();
+            whist -> Fit(gausfit);
+            double sigma = gausfit -> GetParameter("Sigma");
+            double esigma = gausfit -> GetParError(2);
+            
+            double hnum = chihist -> GetEntries();
+            chifit -> FixParameter(0,hnum);
+            int maxbin = chihist -> GetMaximumBin();
+            double xmax = maxbin*0.1;
+            cout << "xmax : " << xmax << endl;
+            double a = xmax*1.0/(27-2);
+            chifit -> SetParameter(1,a);
+            chihist -> Draw();
+            chihist -> Fit(chifit);
+            double as = chifit -> GetParameter(1);
+            as *= 27;
+            double eas = chifit -> GetParError(1);
+            sigma_scale -> SetPoint(ssbin,sigma,as);
+            sigma_scale -> SetPointError(ssbin,esigma,eas);
+            ssbin++;
         }
-        /*st.Hist(dist);
-        c1 -> SetLogy();
-        dist -> Draw();
-        filesystem::current_path(savedirt);
-        string gname = "rand_allhist"+to_string(i)+".ps";
-        c1 -> SaveAs(gname.c_str());
-        st.Hist(chi_hist);
-        c1 -> SetLogy();
-        chi_hist -> Draw();
-        gname = "all_chi"+to_string(i)+".ps";
-        c1 -> SaveAs(gname.c_str());*/
+        
     }
+    axss.title = "sigma_scale;sigma;scale";
+    st.GraphErrors(sigma_scale,axss);
+    sigma_scale -> Draw("AP");
+    TF1* quadf = new TF1("quadf","[0]*(x-[1])*(x-[1])+[2]",0,0.5);
+    quadf -> SetParameter(1,0.00001);
+    quadf -> SetParameter(2,0.00001);
+    quadf -> SetParameter(0,1.00000);
+    sigma_scale -> Fit(quadf);
 }

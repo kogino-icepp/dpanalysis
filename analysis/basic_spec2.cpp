@@ -87,6 +87,7 @@ void basic_spec2(){
     st.dot_size = 0.6;
     st.markerstyle = 20;
     st.color = kGreen;
+    axrange axscale = {0,1,0,1,0,1,"scale_test;xscale;yscale"};
     queue<int> que;
     for(int i=2;i<3;i++){
         string cdir=dir+"band"+to_string(i);
@@ -97,7 +98,7 @@ void basic_spec2(){
         vector<vector<int>> Ite(34400);
         axrange ax = {ifmin,ifmax,-10,100,0,1,""};
         axrange axg = {ifmin,ifmax,0,pow(10,31),0,1,""};
-        for(int j=0;j<4;j++){
+        for(int j=0;j<1;j++){
             TGraph* graph = new TGraph;
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -181,6 +182,21 @@ void basic_spec2(){
             //c1 -> SetLogy();
             st.Graph(pgraph1,ax);
             pgraph1 -> Draw("AL");
+            int testbin = 3035;
+            for(int bin=testbin;bin<testbin+1;bin+=dbin){
+                bool hantei = false;
+                
+                double yscale = 100000;
+                TGraphErrors* spgraph = new TGraphErrors;
+                ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
+                double res1,res2;
+                TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                st.GraphErrors(spgraph,axscale);
+                spgraph -> Draw("AP");
+                ft.all_fit(spgraph,f2,5,res2);
+                f2 -> Draw("same");
+                
+            }
             /*filesystem::current_path(savedird);
             string gname = "mirror_temp"+to_string(i)+"_"+to_string(j)+"_1.ps";
             c1 -> SaveAs(gname.c_str());

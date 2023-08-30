@@ -130,7 +130,33 @@ vector<double> caliblate(double hot[nbin],double cold[nbin], double mirror[nbin]
 Double_t MyFunction(double x,double p0,double p1){
     return p1*p0*TMath::Exp(-p1*x/2)*pow(p1*x,(p1/2)-1)/(pow(2,p1/2)*TMath::Exp(TMath::LnGamma(p1/2)));
 }
-
+double v_conv(double f,double f0){
+    double rtn=c*sqrt(1-((f0/f)*(f0/f)));
+    return rtn;
+}
+double F_nu(double f,double f0){
+    double rtn;
+    double v=v_conv(f,f0);
+    double p_kata=(v+vE)/v0;
+    double m_kata=(v-vE)/v0;
+    rtn = (vc/(2*sqrt(M_PI)*vE))*(exp(-(p_kata*p_kata))-exp(-(m_kata*m_kata)));
+    rtn += 0.5*(erf(p_kata)+erf(m_kata));
+    //rtn *= (c*f0*f0)/(f*f*f*sqrt(1-(f0/f)*(f0/f)));
+    return rtn;
+}
+double F_sig1(double f,double f0,double P,double r){
+    double rtn = P*(F_nu(f+r*dNu,f0)-F_nu(f-r*dNu,f0));
+    return rtn;
+}
+double F_sig2(double f,double f0,double P,double r){
+    if(f+dnu*r<=f0)return 0;
+    else if(f+r*dNu>f0 && f-(1-r)*dNu<=f0){
+        return P*(F_nu(f+r*dNu,f0)-F_nu(f0,f0));
+    }
+    else if(f-dnu*(1-r)>f0){
+        return P*(F_nu(f+r*dNu,f0)-F_nu(f-(1-r)*dNu,f0));
+    }
+}
 //パラメータ数を可変にしたときのフィッティング関数 できればフィット後のステータスも知りたい
 /*
 要件定義
@@ -161,6 +187,7 @@ void baselinefit_2(){
     string savedir = "/Users/oginokyousuke/data/baseline_change/";
     string savedir2 = "/Users/oginokyousuke/data/rand_fit/";
     string savedird = "/Users/oginokyousuke/data/basic_data/";
+    string savedirp = "/Users/oginokyousuke/data/peak_data/";
 
     filesystem::current_path(dir);
 
@@ -322,7 +349,7 @@ void baselinefit_2(){
             //setting.GraphErrors(pgraph1,ifmin,ifmax,0,100);
             //pgraph1 -> SetTitle("Prec;Freq[GHz];Prec[K]");
             //pgraph1 -> Draw("AP");
-            TH1D* whist = new TH1D("white","white_noise;dT[K];Count",100,-1,1);
+            
             TH1D* chihist = new TH1D("chihist","chihist;chi2/NDF;Coutn",100,0,10);
             double fm,fM;
             double chi2,chi2_d,chi22;
@@ -330,7 +357,9 @@ void baselinefit_2(){
             double ysmax = -10;
             TH1D* ketah = new TH1D("hetah","ketah;PrecisionKeta;Count",21,0,20);
             //一回目のデータの処理
+            TGraphErrors* wgraph1 = new TGraphErrors;
             for(int bin=sb;bin<fb;bin+=dbin){
+                TH1D* whist = new TH1D("white","white_noise;dT[K];Count",100,-1,1);
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
                     if(c_toge1[j][k] || h_toge1[j][k]){
@@ -346,7 +375,7 @@ void baselinefit_2(){
                 ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
                 
                 TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                
+                TF1* gausfit = new TF1("gausfit","gaus",-1,1);
                 
                 //ft.rand_conv2(spgraph,f2,100,ketah,bin);
                 double res2;
@@ -357,13 +386,69 @@ void baselinefit_2(){
                     double yValue = f2 -> Eval(xValue);
                     double yTrue = spgraph -> GetPointY(k);
                     whist -> Fill((yValue-yTrue)*yscale);
+                    wgraph1 -> SetPoint(bin+k,Freq1[bin+k],(yValue-yTrue)*yscale);
+                }
+                st.Hist(whist);
+                whist -> Draw();
+                whist -> Fit(gausfit,"MQ","",-1,1);
+                double sigma = gausfit -> GetParameter("Sigma");
+                double esigma = gausfit -> GetParError(2);
+                cout << sigma << " " << esigma << endl;
+                for(int rb=bin;rb<bin+dbin;rb++)wgraph1 -> SetPointError(rb,0,sigma);
+                
+            }
+            //pgraph1についてピークサーチしてその感度も出す
+            /*
+            どうフィットするか
+            1. 注目する周波数を一つフィックスして前後数ビン(-10~10とか？)でフィット
+            2. 丸々データがない時や統計量が少ない時(自由度でもカウントして)はスルー？
+            3. フィットした時のピークの値、chi2/NDF、各データのシグマの値、なんでもいいので片っ端から保存？
+            */
+            
+            int dameten = 0;
+            TH1D* phist1 = new TH1D("phist","phist;P[];Count",100,-1,1);
+            TH1D* chihist1 = new TH1D("chihist1","chihist1;Chi2/NDF;Count",100,0,10);
+            for(int bin=sb+10;bin<fb-10;bin++){
+                TF1* peakf = new TF1("peakf","F_sig2(x,[0],[1],0.5)",Freq1[bin-10],Freq1[bin+10]);
+                peakf -> FixParameter(0,Freq1[bin]);
+                peakf -> SetParameter(1,0.1);
+                rep(k,5)wgraph1 -> Fit(peakf,"EMQ","",Freq1[bin-10],Freq1[bin+10]);
+                int ndf = peakf -> GetNDF();
+                double chi2 = peakf -> GetChisquare();
+                if(ndf<10){
+                    cout << Freq1[bin] << "GHz Can't Fit" << endl;
+                    dameten++;
+                    continue;
+                }
+                else{
+                    double p = peakf -> GetParameter(1);
+                    double perr = peakf -> GetParError(1);
+                    cout << "p: " << p << " <=> perr: " << perr << endl;
+                    if(abs(p)>1)phist1 -> Fill(1);
+                    else phist1 -> Fill(p);
+                    chihist1 -> Fill(chi2/ndf);
                 }
                 
             }
-            
-            //p1は直接のスケールではない
+            st.Hist(phist1);
+            st.Hist(chihist1);
+            c1 -> SetLogy();
+            filesystem::current_path(savedirp);
+            phist1 -> Draw();
+            phist1 -> Fit("gaus");
+            string gname = "phist"+to_string(i)+"_"+to_string(j)+"_1.ps";
+            c1 -> SaveAs(gname.c_str());
+            chihist1 -> Draw();
+            gname = "chihist"+to_string(i)+"_"+to_string(j)+"_1.ps";
+            c1 -> SaveAs(gname.c_str());
+            cout << "dameten : " << dameten << endl;
+
+
+
             //二回目のデータの処理　分離するのはいいとしてその基準と
+            TGraphErrors* wgraph2 = new TGraphErrors;
             for(int bin=sb;bin<fb;bin+=dbin){
+                TH1D* whist = new TH1D("white","white_noise;dT[K];Count",100,-1,1);
                 //cout << Freq2[bin] << endl;
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
@@ -377,6 +462,7 @@ void baselinefit_2(){
                 TGraphErrors* spgraph = new TGraphErrors;
                 ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
                 TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                TF1* gausfit = new TF1("gausfit","gaus",-1,1);
                 double res2;
                 ft.rand_fit(spgraph,f2,100,5,0,1,res2);
                 chihist -> Fill(res2);
@@ -385,39 +471,54 @@ void baselinefit_2(){
                     double yValue = f2 -> Eval(xValue);
                     double yTrue = spgraph -> GetPointY(k);
                     whist -> Fill((yValue-yTrue)*yscale);
+                    wgraph2 -> SetPoint(bin+k,Freq2[bin+k],(yValue-yTrue)*yscale);
                 }
+                st.Hist(whist);
+                whist -> Draw();
+                whist -> Fit(gausfit,"MQ","",-1,1);
+                double sigma = gausfit -> GetParameter("Sigma");
+                double esigma = gausfit -> GetParError(2);
+                cout << sigma << " " << esigma << endl;
+                for(int rb=bin;rb<bin+dbin;rb++)wgraph2 -> SetPointError(rb,0,sigma);
             }
-            TF1* gausfit = new TF1("gausfit","gaus",-1,1);
-            TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],27,0.1)",0,10);
-            whist -> Draw();
-            whist -> Fit(gausfit);
-            double sigma = gausfit -> GetParameter("Sigma");
-            double esigma = gausfit -> GetParError(2);
-            
-            double hnum = chihist -> GetEntries();
-            chifit -> FixParameter(0,hnum);
-            int maxbin = chihist -> GetMaximumBin();
-            double xmax = maxbin*0.1;
-            cout << "xmax : " << xmax << endl;
-            double a = xmax*1.0/(27-2);
-            chifit -> SetParameter(1,a);
-            chihist -> Draw();
-            chihist -> Fit(chifit);
-            double as = chifit -> GetParameter(1);
-            as *= 27;
-            double eas = chifit -> GetParError(1);
-            sigma_scale -> SetPoint(ssbin,sigma,as);
-            sigma_scale -> SetPointError(ssbin,esigma,eas);
-            ssbin++;
+            TH1D* phist2 = new TH1D("phist2","phist;P[];Count",100,-1,1);
+            TH1D* chihist2 = new TH1D("chihist2","chihist1;Chi2/NDF;Count",100,0,10);
+            for(int bin=sb+10;bin<fb-10;bin++){
+                TF1* peakf = new TF1("peakf","F_sig2(x,[0],[1],0.5)",Freq2[bin-10],Freq2[bin+10]);
+                peakf -> FixParameter(0,Freq1[bin]);
+                peakf -> SetParameter(1,0.1);
+                rep(k,5)wgraph2 -> Fit(peakf,"EMQ","",Freq2[bin-10],Freq2[bin+10]);
+                int ndf = peakf -> GetNDF();
+                double chi2 = peakf -> GetChisquare();
+                if(ndf<10){
+                    cout << Freq2[bin] << "GHz Can't Fit" << endl;
+                    dameten++;
+                    continue;
+                }
+                else{
+                    double p = peakf -> GetParameter(1);
+                    double perr = peakf -> GetParError(1);
+                    cout << "p: " << p << " <=> perr: " << perr << endl;
+                    if(abs(p)>1)phist2 -> Fill(1);
+                    else phist2 -> Fill(p);
+                    chihist2 -> Fill(chi2/ndf);
+                }
+                
+            }
+            st.Hist(phist2);
+            st.Hist(chihist2);
+            c1 -> SetLogy();
+            filesystem::current_path(savedirp);
+            phist2 -> Draw();
+            phist2 -> Fit("gaus");
+            gname = "phist"+to_string(i)+"_"+to_string(j)+"_2.ps";
+            c1 -> SaveAs(gname.c_str());
+            chihist2 -> Draw();
+            gname = "chihist"+to_string(i)+"_"+to_string(j)+"_2.ps";
+            c1 -> SaveAs(gname.c_str());
+            cout << "dameten : " << dameten << endl;
         }
         
     }
-    axss.title = "sigma_scale;sigma;scale";
-    st.GraphErrors(sigma_scale,axss);
-    sigma_scale -> Draw("AP");
-    TF1* quadf = new TF1("quadf","[0]*(x-[1])*(x-[1])+[2]",0,0.5);
-    quadf -> SetParameter(1,0.00001);
-    quadf -> SetParameter(2,0.00001);
-    quadf -> SetParameter(0,1.00000);
-    sigma_scale -> Fit(quadf);
+    
 }

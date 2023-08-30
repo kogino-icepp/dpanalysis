@@ -382,7 +382,23 @@ class Fitter{
         }while (next_permutation(field.begin(), field.end()));
         rep(i,selnum)f->SetParameter(i,minpara[i]);
     }
-
+    //spgraphと二次関数からホワイトノイズを導出する関数
+    /*void GetWhiteNoise(TGraphErrors*graph,TF1*f,TH1D*hist,double yscale){
+        rep(k,dbin){
+            double xValue = graph -> GetPointX(k);
+            double yValue = f -> Eval(xValue);
+            double yTrue = graph -> GetPointY(k);
+            hist -> Fill((yValue-yTrue)*yscale);
+        }
+    }
+    //元のグラフにエラーを載せ直す(histはwhitenoiseでスケールを戻したもの)
+    void ResetError(TGraphErrors*graph,TGraphErrors*spgraph,TH1D*hist,int bin,double yscale){
+        GetWhiteNoise(spgraph,f,hist,yscale);
+        TF1* gausfit = new TF1("gausfit","gaus",-1,1);
+        hist -> Fit(gausfit);
+        double sigma = gausfit -> GetParameter("Sigma");
+        for(int i=bin;i<bin+dbin;i++)graph -> SetPointError(bin,0,sigma);
+    }*/
 };
 class CheckData{
     public:
