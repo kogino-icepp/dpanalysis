@@ -177,6 +177,7 @@ class Fitter{
         rep(i,3) f -> SetParameter(i,good_para[i]);
         res = chimin;
     }
+    
     void rand_fit_test(TGraphErrors* graph,TF1* f,int fite,double fm,double fM,double chi_test,int &num){
         syoki_para(graph,f,0);
         double chi2,ndf;
@@ -382,23 +383,55 @@ class Fitter{
         }while (next_permutation(field.begin(), field.end()));
         rep(i,selnum)f->SetParameter(i,minpara[i]);
     }
-    //spgraphと二次関数からホワイトノイズを導出する関数
-    /*void GetWhiteNoise(TGraphErrors*graph,TF1*f,TH1D*hist,double yscale){
-        rep(k,dbin){
-            double xValue = graph -> GetPointX(k);
-            double yValue = f -> Eval(xValue);
-            double yTrue = graph -> GetPointY(k);
-            hist -> Fill((yValue-yTrue)*yscale);
-        }
+    void allfit2(TGraphErrors* graph,TF1*f,int ite,double &res){
+    //0以上bnum+selnum未満まで走査してくれる
+        int bnum = 27;
+        int selnum = 3;
+        vector<int> field;
+        rep(i,bnum)field.push_back(0);
+        rep(i,selnum)field.push_back(1);
+        vector<double> minpara(3,0);
+        do{
+            vector<int> ans;
+            int cand_num = 0;
+            rep(i,field.size()){
+                if(field[i]==0)cand_num++;
+                if(field[i]==1){
+                    ans.push_back(cand_num);
+                    cand_num++;
+                }
+            }
+            bool hantei = true;
+            rep(j,3){
+                if(ans[j]>=10 && ans[j]<20){
+                    hantei = false;
+                    break;
+                }
+            }
+            if(!hantei)continue;
+            vector<pair<double,double>> points;
+            rep(j,selnum){
+                double x = graph -> GetPointX(ans[j]);
+                double y = graph -> GetPointY(ans[j]);
+                points.push_back({x,y});
+            }
+            vector<double> paras = GetQuadPara(points);
+            //cout << ans[0] << " " << ans[1] << " " << ans[2] << endl;
+            //cout << paras[0] << " " << paras[1] << " " << paras[2] << endl;
+            //cout << "---------------" << endl;
+            rep(j,selnum)f -> SetParameter(j,paras[j]);
+            rep(j,ite)graph -> Fit(f,"MQN","",0,1);
+            double chi2 = f -> GetChisquare();
+            double ndf = f -> GetNDF();
+            if(res>chi2/ndf){
+                res = chi2/ndf;
+                rep(j,selnum)minpara[j]=f->GetParameter(j);
+            }
+            //cout << ans[0] << " " << ans[1] << " " << ans[2] << endl;
+        }while (next_permutation(field.begin(), field.end()));
     }
-    //元のグラフにエラーを載せ直す(histはwhitenoiseでスケールを戻したもの)
-    void ResetError(TGraphErrors*graph,TGraphErrors*spgraph,TH1D*hist,int bin,double yscale){
-        GetWhiteNoise(spgraph,f,hist,yscale);
-        TF1* gausfit = new TF1("gausfit","gaus",-1,1);
-        hist -> Fit(gausfit);
-        double sigma = gausfit -> GetParameter("Sigma");
-        for(int i=bin;i<bin+dbin;i++)graph -> SetPointError(bin,0,sigma);
-    }*/
+    //spgraphと二次関数からホワイトノイズを導出する関数
+    //フィットで得られた結果のステータスを確認するための関数を作りたい(結果が収束しているかなど)
 };
 class CheckData{
     public:
