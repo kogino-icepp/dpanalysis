@@ -189,7 +189,7 @@ void make5tree(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=0;j<1;j++){
+        for(int j=0;j<4;j++){
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -284,10 +284,10 @@ void make5tree(){
             }*/
             //後々のためにフィットで得られた諸データをrootファイルで保存したい
             filesystem::current_path(saveexe);
-            string tfname = "all_baseline_test.root";
+            string tfname = "all_baseline"+to_string(j)+".root";
             TFile *fout = new TFile(tfname.c_str(),"recreate");
             
-            prep(offset,0,5){
+            prep(offset,0,30){
                 cout << "offset : " << offset << endl;
                 string treeName = "tree" + to_string(offset);
                 TTree *tree = new TTree(treeName.c_str(), ("tree"+to_string(offset)).c_str());
@@ -312,6 +312,7 @@ void make5tree(){
                         }
                     }
                     if(hantei){
+                        bin -= offset;
                         continue;
                     }
                     double yscale = 100000;

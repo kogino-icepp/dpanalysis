@@ -420,9 +420,15 @@ class Fitter{
             //cout << paras[0] << " " << paras[1] << " " << paras[2] << endl;
             //cout << "---------------" << endl;
             rep(j,selnum)f -> SetParameter(j,paras[j]);
-            rep(j,ite)graph -> Fit(f,"MQN","",0,1);
+            rep(j,ite){
+                graph -> Fit(f,"MQN","",0,1);
+            }
             double chi2 = f -> GetChisquare();
             double ndf = f -> GetNDF();
+            if(ndf<5){
+                cout << "Less NDF" << endl;
+                exit(1);
+            }
             if(res>chi2/ndf){
                 res = chi2/ndf;
                 rep(j,selnum)minpara[j]=f->GetParameter(j);
