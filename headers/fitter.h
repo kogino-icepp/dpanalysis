@@ -221,6 +221,35 @@ class Fitter{
         //cout << "dymax = " << dymax << endl;
 
     }
+    void exfit(TGraphErrors* graph,TF1*f,double &res){
+        //4パターンでフィットする
+        TF1* tf = new TF1("tf","[0]*(x-[1])*(x-[1])+[2]",0,1);
+        vector<vector<double>> para(4,vector<double>(4,0));
+        rep(i,4){
+            if(i%2==0)tf -> SetParameter(0,0.1);
+            else if(i%2==1)tf -> SetParameter(0,-0.1);
+            if(i/2==0)tf -> SetParameter(2,1);
+            else if(i/2==0)tf -> SetParameter(2,0);
+            tf -> SetParameter(1,0.5);
+            rep(j,100)graph -> Fit(tf,"MQE","",0,1);
+            double chi = tf -> GetChisquare();
+            int ndf = tf -> GetNDF();
+            para[i][3] = chi/ndf;
+            para[i][0] = tf -> GetParameter(0);
+            para[i][1] = tf -> GetParameter(1);
+            para[i][2] = tf -> GetParameter(2);
+        }
+        int index = -1;
+        double resx = 100;
+        rep(i,4){
+            if(para[i][3]<resx){
+                index = i;
+                resx = para[i][3];
+                rep(j,3)f -> SetParameter(j,para[i][j]);
+            }
+        }
+        res = resx;
+    }
     void make_scale(TGraphErrors* graph,TGraph* mgraph,int sbin,double &yscale){
         //走査範囲のレンジ調査
         double xmin,xmax,ymin,ymax;
@@ -391,6 +420,7 @@ class Fitter{
         rep(i,bnum)field.push_back(0);
         rep(i,selnum)field.push_back(1);
         vector<double> minpara(3,0);
+        double resx = 100;
         do{
             vector<int> ans;
             int cand_num = 0;
@@ -429,12 +459,14 @@ class Fitter{
                 cout << "Less NDF" << endl;
                 exit(1);
             }
-            if(res>chi2/ndf){
-                res = chi2/ndf;
+            if(resx>chi2/ndf){
+                resx = chi2/ndf;
                 rep(j,selnum)minpara[j]=f->GetParameter(j);
             }
             //cout << ans[0] << " " << ans[1] << " " << ans[2] << endl;
         }while (next_permutation(field.begin(), field.end()));
+        rep(i,3)f -> SetParameter(i,minpara[i]);
+        res = resx;
     }
     //spgraphと二次関数からホワイトノイズを導出する関数
     //フィットで得られた結果のステータスを確認するための関数を作りたい(結果が収束しているかなど)

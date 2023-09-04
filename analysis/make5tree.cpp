@@ -189,7 +189,7 @@ void make5tree(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=0;j<4;j++){
+        for(int j=0;j<1;j++){
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -284,7 +284,7 @@ void make5tree(){
             }*/
             //後々のためにフィットで得られた諸データをrootファイルで保存したい
             filesystem::current_path(saveexe);
-            string tfname = "all_baseline"+to_string(j)+".root";
+            string tfname = "all_basekai"+to_string(j)+".root";
             TFile *fout = new TFile(tfname.c_str(),"recreate");
             
             prep(offset,0,30){
@@ -318,27 +318,38 @@ void make5tree(){
                     double yscale = 100000;
                     TGraphErrors* spgraph = new TGraphErrors;
                     ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
+                    TGraphErrors* spgraphk = new TGraphErrors;
+                    rep(spbin,dbin){
+                        if(spbin<10 || spbin>=20){
+                            double x = spgraph -> GetPointX(spbin);
+                            double y = spgraph -> GetPointY(spbin);
+                            double ye = spgraph -> GetErrorY(spbin);
+                            spgraphk -> SetPoint(spbin,x,y);
+                            spgraphk -> SetPointError(spbin,0,ye);
+                        }
+                    }
                     double res1,res2;
                     TF1* f1 = new TF1("f1","[0]*(x-[1])*(x-[1])+[2]",0,1);
                     //TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                    ft.allfit2(spgraph,f1,5,res1);
-                    st.GraphErrors(spgraph,axtest);
-                    spgraph -> Draw("AP");
+                    ft.allfit2(spgraphk,f1,5,res1);
+                    //ft.exfit(spgraph,f2,res2);
+                    //cout << res1 << " : " << res2 << endl;
+                    st.GraphErrors(spgraphk,axtest);
+                    spgraphk -> Draw("AP");
+                    
                     f1 -> Draw("same");
                     //ft.all_fit(spgraph,f2,5,res2);
                     aF = f1 -> GetParameter(0);
                     bF = f1 -> GetParameter(1);
                     cF = f1 -> GetParameter(2);
-                    //cout << "parameter's are" << endl;
-                    //cout << aF << " " << bF << " " << cF << endl;
                     chiF = res1;
                     binF = bin;
                     freqF = Freq1[bin];
-                    //:cout << freqF << endl;
-                    //cout << aF << " : " << bF << " : " << cF << endl;
+                    //cout << "parameter's are" << endl;
+                    cout << aF << " " << bF << " " << cF << endl;
+                    cout << res1 << " " << freqF << endl;
                     tree -> Fill();
                     bin-=offset;
-                    //chi_hist -> Fill(res2);
                 }
                 
             }
