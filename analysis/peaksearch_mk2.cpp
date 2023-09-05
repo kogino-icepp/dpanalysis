@@ -34,6 +34,13 @@ double psigma[4] = {0.114962,0.115969,0.12412,0.11982};
 Double_t chiF_free(double x,double p0,double k,double p1){
     return p0*TMath::Gamma(k/2,x/(2*p1));
 }
+/// @brief 
+/// @param x 
+/// @param p0 
+/// @param p1 
+/// @param k 
+/// @param bin 
+/// @return 
 Double_t chiF_freefit(double x,double p0,double p1,double k,double bin){
     return (chiF_free((x+bin/2),p0,k,p1)-chiF_free((x-bin/2),p0,k,p1));
 }
@@ -169,16 +176,68 @@ void GetBasicData(int i,int j,int p,TGraph*prec){
 /// @brief 
 /// @param offset 
 /// @param i 
-/// @param j 
-/// @param p 
 /// @param fn 
-void chi_check(int offset,int i,int j,int p,int fn){
+void ChiCheck(int offset,int i,int fn,TH1D*hist){
     filesystem::path path=filesystem::current_path();
     filesystem::current_path(saveexe);
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.15,0.1,0.2,0.1);
     Setting st;
     string fnhon = "all_baseline"+to_string(fn)+".root";
+    string fnkai = "all_basekai"+to_string(fn)+".root";
+    const char* filename = fnkai.c_str();
+    const char* treeName = ("tree"+to_string(offset)).c_str();
+    TFile*file = TFile::Open(filename);
+    if (!file) {
+        cerr << "Error opening file " << filename << std::endl;
+        return;
+    }
+    // Get the TTree
+    TTree*tree = dynamic_cast<TTree*>(file->Get(treeName));
+    if (!tree) {
+        cerr << "Error getting tree " << treeName << " from file " << filename << std::endl;
+        file->Close();
+        return;
+    }
+    Int_t numEntries = tree->GetEntries();
+    TH1D* chihist = new TH1D("chihist","chihist;Chi2/NDF;Count",100,0,5);
+    rep(i,numEntries){
+        tree -> GetEntry(i);
+        Double_t chi;
+        tree->SetBranchAddress("chi", &chi);
+        chihist -> Fill(chi);
+    }
+    TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],17,0.05)");
+    st.Hist(chihist);
+    double entnum = chihist -> GetEntries();
+    int maxbin = chihist -> GetMaximumBin();
+    double a =0.02;
+    chifit -> FixParameter(0,entnum);
+    chifit -> SetParameter(1,a);
+    c1 -> SetLogy();
+    chihist -> Draw();
+    chihist -> Fit(chifit,"MQE","",0,5);
+    chifit -> Draw("same");
+    double chires = chifit -> GetChisquare();
+    int ndf = chifit -> GetNDF();
+    cout << fn << " " << offset << endl;
+    cout << "chi2/ndf : " << chires/ndf << endl;
+    //delete[] filename;
+    //delete[] treeName;
+}
+
+void WhiteCheck(int offset,int i,int j,int p,TH1D*hist){
+    filesystem::path path=filesystem::current_path();
+    filesystem::current_path(saveexe);
+    /*TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+    c1 -> SetMargin(0.15,0.1,0.2,0.1);*/
+    Setting st;
+    st.dot_size=0.8;
+    st.markerstyle=20;
+    st.color = kGreen;
+    string fntest = "all_baseline_test.root";
+    string fnhon = "all_baseline"+to_string(j)+".root";
+    string fnkai = "all_basekai"+to_string(j)+".root";
     const char* filename = fnhon.c_str();
     const char* treeName = ("tree"+to_string(offset)).c_str();
     TFile*file = TFile::Open(filename);
@@ -194,15 +253,55 @@ void chi_check(int offset,int i,int j,int p,int fn){
         return;
     }
     Int_t numEntries = tree->GetEntries();
-    TH1D* chihist = new TH1D("chihist","chihist;Chi2/NDF;Count",100,0,10);
+    vector<vector<double>> vparas(3,vector<double>(nbin));
+    vector<double> vpfreq(nbin,DINF);
+    vector<int> vbin(nbin);
     rep(i,numEntries){
         tree -> GetEntry(i);
-        Double_t chi;
+        Double_t a, b, c, chi,freq;
+        int bin;
+        tree->SetBranchAddress("a", &a);
+        tree->SetBranchAddress("b", &b);
+        tree->SetBranchAddress("c", &c);
         tree->SetBranchAddress("chi", &chi);
-        chihist -> Fill(chi);
+        tree->SetBranchAddress("bin", &bin);
+        tree->SetBranchAddress("freq",&freq);
+        vparas[0][bin]=a;
+        vparas[1][bin]=b;
+        vparas[2][bin]=c;
+        vpfreq[bin]=freq;
+        
     }
-    st.Hist(chihist);
-    chihist -> Draw();
+    TGraph* pgraph = new TGraph;
+    GetBasicData(i,j,p,pgraph);
+    //TH1D* whist = new TH1D("whist","WhiteNoise;white_noise[K];Count",100,-1,1);
+    for(int bin=sb;bin<fb;bin+=dbin){
+        bin+=offset;
+        if(vpfreq[bin]==DINF)continue;
+        TF1* quadf = new TF1("quadf","[0]*(x-[1])*(x-[1])+[2]",0,1);
+        TGraphErrors* wgraph = new TGraphErrors;
+        quadf -> SetParameter(0,vparas[0][bin]);
+        quadf -> SetParameter(1,vparas[1][bin]);
+        quadf -> SetParameter(2,vparas[2][bin]);
+        TGraphErrors* spgraph = new TGraphErrors;
+        double yscale;
+        ft.make_scale(spgraph,pgraph,bin-sb,yscale);
+        st.GraphErrors(spgraph,axscale);
+        spgraph -> Draw("AP");
+        quadf -> Draw("same");
+        // /spgraph -> Fit(quadf,"M","",0,1);
+        rep(k,dbin){
+            double xValue = spgraph -> GetPointX(k);
+            double yValue = quadf -> Eval(xValue);
+            double yTrue = spgraph -> GetPointY(k);
+            hist -> Fill((yValue-yTrue)*yscale);
+            if(abs((yValue-yTrue)*yscale)>1)hist -> Fill(0.99);
+        }
+    }
+    /*st.Hist(whist);
+    c1 -> SetLogy();
+    whist -> Draw();
+    whist -> Fit("gaus","MQ","",-1,1);*/
 }
 /// @brief 
 /// @param offset 
@@ -211,7 +310,7 @@ void chi_check(int offset,int i,int j,int p,int fn){
 /// @param p 
 /// @param hist 
 /// @param que 
-void white_check(int offset,int i,int j,int p,TH1D* hist){
+void PeakFit(int offset,int i,int j,int p,TH1D* hist){
     filesystem::path path=filesystem::current_path();
     filesystem::current_path(saveexe);
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
@@ -222,6 +321,7 @@ void white_check(int offset,int i,int j,int p,TH1D* hist){
     st.color = kGreen;
     string fntest = "all_baseline_test.root";
     string fnhon = "all_baseline"+to_string(j)+".root";
+    string fnkai = "all_basekai"+to_string(j)+".root";
     const char* filename = fnhon.c_str();
     const char* treeName = ("tree"+to_string(offset)).c_str();
     TFile*file = TFile::Open(filename);
@@ -265,7 +365,7 @@ void white_check(int offset,int i,int j,int p,TH1D* hist){
     //pgraph -> Draw("AP");
     //サーチするビンはベースライン基点からさらに15binあと
     //queue<pair<int,double>> outque;
-    for(int bin=23765;bin<23766;bin+=dbin){
+    for(int bin=sb;bin<fb;bin+=dbin){
         TString histName = Form("whist_%d", bin);
         //cout << histName << endl;
         TH1D* whist = new TH1D(histName.Data(),"whist;white_noise[K];Count",100,-1,1);
@@ -338,32 +438,31 @@ void white_check(int offset,int i,int j,int p,TH1D* hist){
 
 //これがメイン関数
 void peaksearch_mk2(){
-    
+    TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+    c1 -> SetMargin(0.15,0.1,0.2,0.1);
     const char* filename = "all_baseline0.root";
     const char* fntest = "all_baseline_test.root";
     //まずはそれぞれ別々の情報が詰められているか確認する
-    TH1D* peakhist = new TH1D("peakhist","peakhist;P[kHz*K];Count",100,-1,1);
+    TH1D* whitehist = new TH1D("whitehist","WhiteNoise;white_noise;Count",100,-1,1);
+    /*TH1D* peakhist = new TH1D("peakhist","peakhist;P[kHz*K];Count",100,-1,1);
     TH1D* chihist = new TH1D("chihist","chihist;Chi2/NDF;Count",100,0,10);
     TF1* gausfit = new TF1("gausfit","gaus",-1,1);
-    TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],18,0.1)");
+    TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],18,0.1)");*/
     queue<double> que;
     queue<pair<int,double>> pque;
 
-    for(int fn=2;fn<3;fn++){
-        for(int offset=0;offset<1;offset++){
+    for(int fn=0;fn<1;fn++){
+        for(int offset=0;offset<30;offset++){
             //PrintEntryInfo(filename,tname,10);
-            /// @brief 
-            /// @param offset 
-            /// @param i 
-            /// @param j 
-            /// @param p 
-            /// @param hist 
-            /// @param que 
-            white_check(offset,5,fn,1,chihist);
-            //chi_check(offset,5,fn,1,fn);
+            WhiteCheck(offset,5,fn,1,whitehist);
+            //PeakFit(offset,5,fn,1,chihist);
+            //ChiCheck(offset,5,fn);
         }
     }
-    
+    st.Hist(whitehist);
+    whitehist -> Draw();
+    c1 -> SetLogy();
+    whitehist -> Fit("gaus");
     /*TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.15,0.1,0.2,0.1);
     st.Hist(peakhist);

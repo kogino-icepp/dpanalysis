@@ -31,5 +31,10 @@
         "iterator": "cpp",
         "random": "cpp",
         "queue": "cpp"
-    }
+    },
+    "python.testing.pytestArgs": [
+        "othr"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }

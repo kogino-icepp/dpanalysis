@@ -52,11 +52,11 @@ void signal_test(){
         double freq = 223+(i-15)*dfreq;
         graph -> SetPoint(i,freq,F_sig2(freq,223,10,0.5));
     }
-    double fmin = 223-15*dfreq;
+    double fmin = 223-10*dfreq;
     double fmax = 223+15*dfreq;
-    axrange axtest = {fmin,fmax,-1,10,0,1,"test_signal;Freq[GHz];Prec[K]"};
+    axrange axtest = {fmin,fmax,-1,5,0,1,"test_signal;Freq[GHz];Prec[K]"};
     st.Graph(graph,axtest);
     graph -> SetFillColor(kCyan);
     graph -> Draw("AB");
-    
+
 }
