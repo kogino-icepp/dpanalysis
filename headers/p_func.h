@@ -35,5 +35,6 @@ public:
         else if(f-dnu*(1-r)>f0){
             return P*(F_nu(f+r*dNu,f0)-F_nu(f-(1-r)*dNu,f0));
         }
+        else return 0;
     }
 };

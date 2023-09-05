@@ -70,6 +70,7 @@ double F_sig2(double f,double f0,double P,double r){
     else if(f-dnu*(1-r)>f0){
         return P*(F_nu(f+r*dNu,f0)-F_nu(f-(1-r)*dNu,f0));
     }
+    else return 0;
 }
 void PrintEntryInfo(const char* filename, const char* treeName, Int_t numEntriesToShow) {
     filesystem::path path=filesystem::current_path();
@@ -111,6 +112,7 @@ void PrintEntryInfo(const char* filename, const char* treeName, Int_t numEntries
     }
     // Close the file
     file->Close();
+    return;
 }
 /// @brief 
 /// @param i 
@@ -172,6 +174,7 @@ void GetBasicData(int i,int j,int p,TGraph*prec){
         //cout << Freq[bin] << " " <<((mirror[bin]/gain)-psys)/(2*kb*df) << endl;
         
     }
+    return;
 }
 /// @brief 
 /// @param offset 
@@ -185,8 +188,9 @@ void ChiCheck(int offset,int i,int fn,TH1D*hist){
     Setting st;
     string fnhon = "all_baseline"+to_string(fn)+".root";
     string fnkai = "all_basekai"+to_string(fn)+".root";
+    string tname = "tree"+to_string(offset);
     const char* filename = fnkai.c_str();
-    const char* treeName = ("tree"+to_string(offset)).c_str();
+    const char* treeName = tname.c_str();
     TFile*file = TFile::Open(filename);
     if (!file) {
         cerr << "Error opening file " << filename << std::endl;
@@ -224,6 +228,7 @@ void ChiCheck(int offset,int i,int fn,TH1D*hist){
     cout << "chi2/ndf : " << chires/ndf << endl;
     //delete[] filename;
     //delete[] treeName;
+    return;
 }
 
 void WhiteCheck(int offset,int i,int j,int p,TH1D*hist){
@@ -238,8 +243,9 @@ void WhiteCheck(int offset,int i,int j,int p,TH1D*hist){
     string fntest = "all_baseline_test.root";
     string fnhon = "all_baseline"+to_string(j)+".root";
     string fnkai = "all_basekai"+to_string(j)+".root";
+    string tname = "tree"+to_string(offset);
     const char* filename = fnkai.c_str();
-    const char* treeName = ("tree"+to_string(offset)).c_str();
+    const char* treeName = tname.c_str();
     TFile*file = TFile::Open(filename);
     if (!file) {
         cerr << "Error opening file " << filename << std::endl;
@@ -302,6 +308,7 @@ void WhiteCheck(int offset,int i,int j,int p,TH1D*hist){
     c1 -> SetLogy();
     whist -> Draw();
     whist -> Fit("gaus","MQ","",-1,1);*/
+    return;
 }
 /// @brief 
 /// @param offset 
@@ -322,8 +329,9 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
     string fntest = "all_baseline_test.root";
     string fnhon = "all_baseline"+to_string(j)+".root";
     string fnkai = "all_basekai"+to_string(j)+".root";
+    string tname = "tree"+to_string(offset);
     const char* filename = fnkai.c_str();
-    const char* treeName = ("tree"+to_string(offset)).c_str();
+    const char* treeName = tname.c_str();
     TFile*file = TFile::Open(filename);
     if (!file) {
         cerr << "Error opening file " << filename << std::endl;
@@ -364,13 +372,13 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
     //st.Graph(pgraph,axraw);
     //pgraph -> Draw("AP");
     //サーチするビンはベースライン基点からさらに15binあと
-    for(int bin=sb;bin<fb;bin+=dbin){
+    for(int bin=9155;bin<9156;bin+=dbin){
         TString histName = Form("whist_%d", bin);
         //cout << histName << endl;
         TH1D* whist = new TH1D(histName.Data(),"whist;white_noise[K];Count",100,-1,1);
         bin+=offset;
-        double s1 = pgraph -> GetPointX(bin-sb-10+15);
-        double s2 = pgraph -> GetPointX(bin-sb+10+15);
+        double s1 = pgraph -> GetPointX(bin-sb-5+15);
+        double s2 = pgraph -> GetPointX(bin-sb+5+15);
         double mfreq = pgraph -> GetPointX(bin-sb+15);
         double sfreq = min(s1,s2);
         double ffreq = max(s1,s2);
@@ -378,7 +386,10 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
         TF1* peakf = new TF1("peakf","F_sig2(x,[0],[1],0.5)",sfreq,ffreq);
         TGraphErrors* wgraph = new TGraphErrors;
         
-        if(vpfreq[bin]==DINF)continue;
+        if(vpfreq[bin]==DINF){
+            cout << "Pass " << endl;
+            continue;
+        }
         //cout << vparas[0][bin] << " " << vparas[1][bin] << " " << vparas[2][bin] << endl;
         quadf -> SetParameter(0,vparas[0][bin]);
         quadf -> SetParameter(1,vparas[1][bin]);
@@ -437,7 +448,7 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
     }
     
     file -> Close();
-    
+    return;
 }
 //ホワイトノイズ的にきちんと詰められていそう→これに対してピークサーチをかける？
 
@@ -456,19 +467,19 @@ void peaksearch_mk2(){
     queue<double> que;
     queue<pair<int,double>> pque;
 
-    for(int fn=2;fn<3;fn++){
-        for(int offset=0;offset<1;offset++){
+    for(int fn=0;fn<1;fn++){
+        for(int offset=3;offset<4;offset++){
             //PrintEntryInfo(filename,tname,10);
             //WhiteCheck(offset,5,fn,1,whitehist);
             PeakFit(offset,5,fn,1,peakhist);
             //ChiCheck(offset,5,fn);
         }
     }
-    st.Hist(peakhist);
+    /*st.Hist(peakhist);
     peakhist -> Draw();
     c1 -> SetLogy();
     peakhist -> Fit("gaus");
-    /*st.Hist(chihist);
+    st.Hist(chihist);
     int entnum = chihist -> GetEntries();
     int maxbin = chihist -> GetMaximumBin();
     double a = maxbin*0.1/(18-2);
@@ -481,7 +492,7 @@ void peaksearch_mk2(){
     //hist -> Fit(gausfit,"MQE","",-1,1);
     //double normsig = gausfit -> GetParameter("Sigma");
     //cout << normsig << endl;
-    /*TH1D* normhist = new TH1D("normhist","normhist;Sigma;Count",100,-5,5);
+    TH1D* normhist = new TH1D("normhist","normhist;Sigma;Count",100,-5,5);
     while(!que.empty()){
         auto v = que.front();que.pop();
         //cout << v << endl;
@@ -494,5 +505,5 @@ void peaksearch_mk2(){
     normhist -> Draw();
     normhist -> Fit("gaus");*/
     //詰められたホワイトノイズやχ^2/ndfが正常かどうかを確認するプログラム
-    
+    return;
 }
