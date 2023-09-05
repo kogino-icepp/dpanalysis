@@ -29,7 +29,7 @@ string saveexe = "/Users/oginokyousuke/data/search_exe/";
 Fitter ft;
 axrange axscale = {0,1,0,1,0,1,"test_data;xscale;yscale"};
 vector<int> sbin = {0,512,-512,-1024};
-double psigma[4] = {0.114962,0.115969,0.12412,0.11982};
+double psigma[4] = {0.17664,0.179145,0.190872,0.11982};
 //フィットに使う諸々の関数群
 Double_t chiF_free(double x,double p0,double k,double p1){
     return p0*TMath::Gamma(k/2,x/(2*p1));
@@ -238,7 +238,7 @@ void WhiteCheck(int offset,int i,int j,int p,TH1D*hist){
     string fntest = "all_baseline_test.root";
     string fnhon = "all_baseline"+to_string(j)+".root";
     string fnkai = "all_basekai"+to_string(j)+".root";
-    const char* filename = fnhon.c_str();
+    const char* filename = fnkai.c_str();
     const char* treeName = ("tree"+to_string(offset)).c_str();
     TFile*file = TFile::Open(filename);
     if (!file) {
@@ -313,8 +313,8 @@ void WhiteCheck(int offset,int i,int j,int p,TH1D*hist){
 void PeakFit(int offset,int i,int j,int p,TH1D* hist){
     filesystem::path path=filesystem::current_path();
     filesystem::current_path(saveexe);
-    TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-    c1 -> SetMargin(0.15,0.1,0.2,0.1);
+    /*TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+    c1 -> SetMargin(0.15,0.1,0.2,0.1);*/
     Setting st;
     st.dot_size=0.8;
     st.markerstyle=20;
@@ -322,7 +322,7 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
     string fntest = "all_baseline_test.root";
     string fnhon = "all_baseline"+to_string(j)+".root";
     string fnkai = "all_basekai"+to_string(j)+".root";
-    const char* filename = fnhon.c_str();
+    const char* filename = fnkai.c_str();
     const char* treeName = ("tree"+to_string(offset)).c_str();
     TFile*file = TFile::Open(filename);
     if (!file) {
@@ -364,7 +364,6 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
     //st.Graph(pgraph,axraw);
     //pgraph -> Draw("AP");
     //サーチするビンはベースライン基点からさらに15binあと
-    //queue<pair<int,double>> outque;
     for(int bin=sb;bin<fb;bin+=dbin){
         TString histName = Form("whist_%d", bin);
         //cout << histName << endl;
@@ -376,7 +375,6 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
         double sfreq = min(s1,s2);
         double ffreq = max(s1,s2);
         TF1* quadf = new TF1("quadf","[0]*(x-[1])*(x-[1])+[2]",0,1);
-        TF1* gausfit = new TF1("gausfit","gaus",-1,1);
         TF1* peakf = new TF1("peakf","F_sig2(x,[0],[1],0.5)",sfreq,ffreq);
         TGraphErrors* wgraph = new TGraphErrors;
         
@@ -396,41 +394,48 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
             double xValue = spgraph -> GetPointX(k);
             double yValue = quadf -> Eval(xValue);
             double yTrue = spgraph -> GetPointY(k);
-            whist -> Fill((yValue-yTrue)*yscale);
+            if(k<10 ||  k>=20)whist -> Fill((yValue-yTrue)*yscale);
             double freqbin = pgraph -> GetPointX(bin-sb+k);
             wgraph -> SetPoint(k,freqbin,(yValue-yTrue)*yscale);
         }
-        //whist -> Fit(gausfit,"MQ","",-1,1);
-        //whist -> Draw();
-        /*double sigma = gausfit -> GetParameter(2);
+        //gausfit -> Draw();
+        double xMin = whist->GetXaxis()->GetBinLowEdge(whist->GetMinimumBin());
+        double xMax = whist->GetXaxis()->GetBinUpEdge(whist->GetMaximumBin());
+        TF1* gausfit = new TF1("gausfit", "gaus",-1,1);
+        gausfit -> SetParameter(0,20);
+        gausfit -> SetParLimits(1,-0.2,0.2);
+        gausfit -> SetParameter(2,0.01);
+        
+        rep(ite,5)whist -> Fit(gausfit,"MQR","",-1,1);
+        whist -> Draw();
+        double sigma = gausfit -> GetParameter(2);
         rep(k,dbin)wgraph -> SetPointError(k,0,sigma);
-        //cout << sigma << endl;
         //一点のみのフィットを行う
         peakf -> FixParameter(0,mfreq);
         peakf -> SetParameter(1,0.5);
-        rep(ite,5)wgraph -> Fit(peakf,"MQE","",sfreq,ffreq);
+        rep(ite,5)wgraph -> Fit(peakf,"MQ","",sfreq,ffreq);
         double pout = peakf -> GetParameter(1);
         double chi = peakf -> GetChisquare();
         int ndf = peakf -> GetNDF();
-        if(chi/ndf>10)hist -> Fill(10);
-        hist -> Fill(chi/ndf);
+        if(abs(pout)>1)hist -> Fill(0.99);
+        hist -> Fill(pout);
+        //if(abs(pout)>4*psigma[j])cout << bin << " " << pout/psigma[j] << endl;
+        cout << bin << " -> " << sigma << endl;
+        //cout << "pout : " << pout << " && chi/ndf : " << chi/ndf << endl;
         axrange axw = {sfreq,ffreq,-2,1,0,1,"fit_example;Freq[GHz];WhiteNoise[K]"};
         st.GraphErrors(wgraph,axw);
         wgraph -> Draw("AP");
         peakf -> Draw("same");
         //ここでデータを格納
         //que.push(pout);
-        //if(abs(pout)>4*psigma[j])cout << bin << " " << pout/psigma[j] << endl;
+        if(abs(pout)>4*psigma[j])cout << bin << " " << pout/psigma[j] << endl;
         bin-=offset;
-        /*st.GraphErrors(wgraph,axw);
-        wgraph -> Draw("AP");
-        peakf -> Draw("same");*/
+        //st.GraphErrors(wgraph,axw);
+        //wgraph -> Draw("AP");
+        //peakf -> Draw("same");
         //whist -> Delete();
     }
-    /*while(!outque.empty()){
-        auto v = outque.front();outque.pop();
-        cout << v.first << " " << v.second/psigma << endl;
-    }*/
+    
     file -> Close();
     
 }
@@ -444,29 +449,26 @@ void peaksearch_mk2(){
     const char* fntest = "all_baseline_test.root";
     //まずはそれぞれ別々の情報が詰められているか確認する
     TH1D* whitehist = new TH1D("whitehist","WhiteNoise;white_noise;Count",100,-1,1);
-    /*TH1D* peakhist = new TH1D("peakhist","peakhist;P[kHz*K];Count",100,-1,1);
-    TH1D* chihist = new TH1D("chihist","chihist;Chi2/NDF;Count",100,0,10);
-    TF1* gausfit = new TF1("gausfit","gaus",-1,1);
-    TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],18,0.1)");*/
+    TH1D* peakhist = new TH1D("peakhist","peakhist;P[kHz*K];Count",100,-1,1);
+    //TH1D* chihist = new TH1D("chihist","chihist;Chi2/NDF;Count",100,0,10);
+    //TF1* gausfit = new TF1("gausfit","gaus",-1,1);
+    //TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],18,0.1)");
     queue<double> que;
     queue<pair<int,double>> pque;
 
-    for(int fn=0;fn<1;fn++){
-        for(int offset=0;offset<30;offset++){
+    for(int fn=2;fn<3;fn++){
+        for(int offset=0;offset<1;offset++){
             //PrintEntryInfo(filename,tname,10);
-            WhiteCheck(offset,5,fn,1,whitehist);
-            //PeakFit(offset,5,fn,1,chihist);
+            //WhiteCheck(offset,5,fn,1,whitehist);
+            PeakFit(offset,5,fn,1,peakhist);
             //ChiCheck(offset,5,fn);
         }
     }
-    st.Hist(whitehist);
-    whitehist -> Draw();
-    c1 -> SetLogy();
-    whitehist -> Fit("gaus");
-    /*TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-    c1 -> SetMargin(0.15,0.1,0.2,0.1);
     st.Hist(peakhist);
-    st.Hist(chihist);
+    peakhist -> Draw();
+    c1 -> SetLogy();
+    peakhist -> Fit("gaus");
+    /*st.Hist(chihist);
     int entnum = chihist -> GetEntries();
     int maxbin = chihist -> GetMaximumBin();
     double a = maxbin*0.1/(18-2);
@@ -475,7 +477,7 @@ void peaksearch_mk2(){
     c1 -> SetLogy();
     chihist -> Draw();
     chihist -> Fit(chifit);
-    chifit -> Draw("same");*/
+    chifit -> Draw("same");
     //hist -> Fit(gausfit,"MQE","",-1,1);
     //double normsig = gausfit -> GetParameter("Sigma");
     //cout << normsig << endl;

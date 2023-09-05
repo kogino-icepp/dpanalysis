@@ -1,10 +1,25 @@
 #include <iostream>
+#include <cmath>
+#include <vector>
 #include <queue>
-
+#include <format>
+#include <tuple>
 #include "../headers/fitter.h"
-#include <TROOT.h>
+
 using namespace std;
-typedef long long ll;
+#define rep(i,n) for(int i=0;i<n;i++)
+#define prep(i,m,n) for(int i=m;i<n;i++)
+#define fore(i,v) for(auto& i:v)
+
+//特定のデータだけ引っ張ってくる用
+vector<int> lsbo = {1,3,5,13,15,17};
+vector<int> lsbi = {2,4,6,14,16,18};
+vector<int> usbi = {7,9,11,19,21,23};
+vector<int> usbo = {8,10,12,20,22,24};
+vector<int> lcolor = {4,2,3,6,7,5};
+vector<int> sbin = {0,512,-512,-1024};
+vector<double> errorv = {0.063,0.066,0.067,0.078,0.066,0.087,0.067,0.062,0.073,0.061,0.089,0.061,0.091,0.142,0.082,0.097,0.087,0.107,0.131,0.087,0.093,0.077,0.103,0.096};
+//共通の物理量
 const double dcsigma = 0.000487;
 const double dhsigma = 0.000457;
 const double ddcsigma = 0.000508;
@@ -19,6 +34,7 @@ const int nbin=32767;
 const int ssb = 2621;//探索すべきビンの最初
 const int sfb = 28835;//探索すべきビンの最後
 const int sb = 2585;//切り出してくるビンの最初
+const int cb = 15725;//探索範囲の中点,ここを境にデータの振幅が変わっているデータがある
 const int fb = 28865;//切り出してくるビンの最後
 const double gcsigma = 0.00072;
 const double ghsigma = 0.00112;
@@ -35,6 +51,46 @@ const double df=88.5*pow(10,3);
 const double Tc=76;
 const double Th=297;
 
+bool toge_hantei(vector<bool>ctoge, vector<bool>htoge, int bin, queue<int>& que){
+    prep(i,bin,bin+dbin){
+        if(ctoge[i] || htoge[i]){
+            que.push(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+int both = 0;
+int tsafe = 0;
+int tout = 0;
+void toge_scan(bool (&hantei)[nbin],double input[nbin],double sigma,double limit,TGraph* graph,double freq[nbin]){
+    double binput = input[sb-1];
+    double bbinput = input[sb-2];
+    double ddinput;
+    int num = 0;
+    for(int bin=sb;bin<fb;bin++){
+        ddinput = input[bin] + bbinput - 2*binput;
+        ddinput /= input[bin]*sigma;
+        graph -> SetPoint(num,bin,ddinput);
+        num++;
+        bbinput = binput;
+        binput = input[bin];
+        if(abs(ddinput) > limit)hantei[bin] = true;
+    }
+}
+void toge_value(double input[nbin],double (&output)[nbin],double sigma){
+    double binput = input[sb-1];
+    double bbinput = input[sb-2];
+    double ddinput;
+    for(int bin=sb;bin<fb;bin++){
+        ddinput = input[bin] + bbinput - 2*binput;
+        ddinput /= input[bin]*sigma;
+        output[bin] = ddinput;
+        bbinput = binput;
+        binput = input[bin];
+    }
+}
 vector<double> caliblate(double hot[nbin],double cold[nbin], double mirror[nbin]){
     long double gain,psys;
     vector<double> prec(nbin);
@@ -46,60 +102,96 @@ vector<double> caliblate(double hot[nbin],double cold[nbin], double mirror[nbin]
     }
     return prec;
 }
-vector<vector<long double>> calibrate2(double hot[nbin],double cold[nbin], double mirror[nbin]){
-    vector<vector<long double>> calresult(3,vector<long double>(nbin));//0:gain, 1:psys, 2:prec
-    rep(bin,nbin){
-        long double gain,psys,prec;
-        gain=(hot[bin]-cold[bin])/(2*kb*(Th-Tc)*df);
-        psys=(cold[bin]/gain)-2*kb*Tc*df;
-        prec=((mirror[bin]/gain)-psys)/(2*kb*df);
-        calresult[0][bin] = gain;
-        calresult[1][bin] = psys;
-        calresult[2][bin] = prec;
-    }
-    return calresult;
+Double_t MyFunction(double x,double p0,double p1){
+    return p1*p0*TMath::Exp(-p1*x/2)*pow(p1*x,(p1/2)-1)/(pow(2,p1/2)*TMath::Exp(TMath::LnGamma(p1/2)));
 }
+
+//パラメータ数を可変にしたときのフィッティング関数 できればフィット後のステータスも知りたい
+/*
+要件定義
+1. coldとhotでアウトなものは無条件に抜く
+2. mirrorに関しては4回分データを走査し、
+*/
 void basic_spec2(){
+    //種々のヘッダー関数を用意
+    Setting st;
+    st.dot_size = 0.8;
+    st.markerstyle = 20;
+    st.color = kGreen;
+    st.lcolor = kBlue;
+    Fitter ft;
+    CheckData cda;
     //お絵描きの設定など
     Double_t xlo=215;
     Double_t xhi=264;
     Double_t ylo=0;
     Double_t yhi=100;
+
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.15,0.1,0.2,0.1);
+    /*c1 -> Divide(1,2);
+    c1 -> cd(1);*/
     TH1F *frame=gPad->DrawFrame(xlo,ylo,xhi,yhi);
-    //TH1F* myHist = new TH1F("my Hist","Prec_distribution",100,-100.,300.);
-    TGraph* after_fit = new TGraph;//ホワイトノイズフィットした後のノイズを載せる
-    ll pnum=0;//トータルのポイントNo.
-    //共通の物理量
-    double kb=1.38*pow(10,-23);
-    double df=88.5*pow(10,3);
-    double Tc=76;
-    double Th=297;
-    int nbin=32767;
     filesystem::path path=filesystem::current_path();
     string dir="/Users/oginokyousuke/code/work_bench3/data_all/";
-    string savedird = "/Users/oginokyousuke/data/basic_data/";
-    vector<int> sbin={0,512,-512,-1024};
+    string saveexe = "/Users/oginokyousuke/data/search_exe/";
+
     filesystem::current_path(dir);
-    Setting st;
-    Fitter ft;
-    st.dot_size = 0.6;
-    st.markerstyle = 20;
-    st.color = kGreen;
-    axrange axscale = {0,1,0,1,0,1,"scale_test;xscale;yscale"};
-    queue<int> que;
-    for(int i=2;i<3;i++){
-        string cdir=dir+"band"+to_string(i);
-        filesystem::current_path(cdir);
-        double f[nbin][4],prec[nbin][4],dprec[nbin][4];
+
+    TGraph* g_ddcm = new TGraph;
+    TGraph* g_ddhm = new TGraph;
+    int dcnum = 0;
+    int dhnum = 0;
+
+    //普遍的な関数(ChiSqure/Ndf)
+    
+    TF1* chi_f = new TF1("chi_f","MyFunction(x,[0],[1])",0,10);
+    
+    queue<double> ratio;
+    double rsum = 0;
+    axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
+    vector<pair<double,double>> pairsigma;
+    
+    for(int i=5;i<6;i++){
+        double dym = 0;
+        int outnum = 0;
+        
+        vector<tuple<int,int,double>> revresult;
+        double good_num = 0;
+        double bad_num = 0;
+        cout << i << endl;
         double ifmin = 213.9+2*i;
         double ifmax = 216.1+2*i;
-        vector<vector<int>> Ite(34400);
-        axrange ax = {ifmin,ifmax,-10,100,0,1,""};
-        axrange axg = {ifmin,ifmax,0,pow(10,31),0,1,""};
-        for(int j=0;j<1;j++){
-            TGraph* graph = new TGraph;
+        string cdir=dir+"band"+to_string(i);
+        filesystem::current_path(cdir);
+        queue<pair<int,double>> que1;
+        queue<pair<int,double>> que2;
+        double prec_av[34303][8];
+        double freq_av[34303];
+        rep(bin,34303){
+            freq_av[bin] = -1;
+            rep(k,8)prec_av[bin][k] = -10000;//ありえない数字を入れておけばとりあえずオッケー
+        }
+        //事前に配列として持っておけば良いのでは？
+        bool c_toge1[4][nbin],c_toge2[4][nbin],h_toge1[4][nbin],h_toge2[4][nbin],m_toge1[4][nbin],m_toge2[4][nbin];
+        rep(j,4){
+            rep(k,nbin){
+                c_toge1[j][k] = false;
+                c_toge2[j][k] = false;
+                h_toge1[j][k] = false;
+                h_toge2[j][k] = false;
+                m_toge1[j][k] = false;
+                m_toge2[j][k] = false;
+            }
+        }
+        //フィットの改善を表すグラフ
+        TGraph* gchange1 = new TGraph;
+        TGraph* gchange2 = new TGraph;
+        int gcbin1 = 0;
+        int gcbin2 = 0;
+        //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
+        for(int j=1;j<2;j++){
+            filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
             for(int data=0;data<576;data++){
@@ -161,13 +253,30 @@ void basic_spec2(){
                 }
             }
             
-            vector<vector<long double>> calres1 = calibrate2(hot1,cold1,mirror1);
-            vector<vector<long double>> calres2 = calibrate2(hot2,cold2,mirror2);
+            vector<double> prec1 = caliblate(hot1,cold1,mirror1);
+            vector<double> prec2 = caliblate(hot2,cold2,mirror2);
             TGraphErrors* pgraph1 = new TGraphErrors;
             TGraphErrors* pgraph2 = new TGraphErrors;
-            TGraph* ggraph1 = new TGraph;
-            TGraph* ggraph2 = new TGraph;
-            prep(bin,sb,fb){
+            
+            prep(bin,sb,fb+30){
+                pgraph1 -> SetPoint(bin-sb,Freq1[bin],prec1[bin]);
+                pgraph1 -> SetPointError(bin-sb,0,0.1);
+                pgraph2 -> SetPoint(bin-sb,Freq2[bin],prec2[bin]);
+                pgraph2 -> SetPointError(bin-sb,0,0.1);
+            }
+            double ddc1[nbin],ddc2[nbin],ddh1[nbin],ddh2[nbin],ddm1[nbin],ddm2[nbin];
+            TGraph* ddcold1 = new TGraph;
+            TGraph* ddcold2 = new TGraph;
+            TGraph* ddhot1 = new TGraph;
+            TGraph* ddhot2 = new TGraph;
+            toge_scan(c_toge1[j],cold1,ddcsigma,ddclim,ddcold1,Freq1);
+            toge_scan(c_toge2[j],cold2,ddcsigma,ddclim,ddcold2,Freq2);
+            toge_scan(h_toge1[j],hot1,ddhsigma,ddhlim,ddhot1,Freq1);
+            toge_scan(h_toge2[j],hot2,ddhsigma,ddhlim,ddhot2,Freq2);
+            axrange axtoge = {0,nbin,-10,10,0,1,"toge_test;Bin;ddsigma"};
+            st.Graph(ddcold1,axtoge);
+            ddcold1 -> Draw("AL");
+            /*prep(bin,sb,fb){
                 //cout << bin << " " << Freq1[bin] << " " << prec1[bin] << endl;
                 pgraph1 -> SetPoint(bin-sb,Freq1[bin],calres1[2][bin]);
                 //cout << calres1[0][bin] << endl;

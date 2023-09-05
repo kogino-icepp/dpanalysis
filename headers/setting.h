@@ -17,6 +17,7 @@ public:
     double dot_size;
     double markerstyle;
     Color_t color;
+    Color_t lcolor;
 public:
     void GetLimit(TGraph2D* graph,axrange& ax){
         ax.xmax = graph -> GetXmax();
@@ -38,10 +39,11 @@ public:
         graph -> GetYaxis() -> SetTitleSize(0.08);
         graph -> GetXaxis() -> SetNdivisions(505);
         graph -> GetYaxis() -> SetNdivisions(505);
-        graph -> SetLineColor(color);
+        //graph -> SetLineColor(color);
         graph -> SetMarkerColor(color);
         graph -> SetMarkerStyle(markerstyle);
         graph -> SetMarkerSize(dot_size);
+        graph -> SetLineColor(lcolor);
         graph -> SetTitle(ax.title.c_str());
     }
     void GraphErrors(TGraphErrors* graph,axrange ax){
@@ -59,7 +61,7 @@ public:
         graph -> SetMarkerStyle(markerstyle);
         graph -> SetMarkerSize(dot_size);
         graph -> SetMarkerColor(color);
-        graph -> SetLineColor(color);
+        graph -> SetLineColor(lcolor);
         graph -> SetTitle(ax.title.c_str());
     }
     void GraphErrorsDiv(TGraphErrors* graph,axrange ax){
@@ -77,7 +79,7 @@ public:
         graph -> SetMarkerStyle(markerstyle);
         graph -> SetMarkerSize(dot_size);
         graph -> SetMarkerColor(color);
-        graph -> SetLineColor(color);
+        graph -> SetLineColor(lcolor);
         graph -> SetTitle(ax.title.c_str());
     }
     void Hist(TH1D* hist){
