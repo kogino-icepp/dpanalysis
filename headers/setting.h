@@ -83,11 +83,11 @@ public:
         graph -> SetTitle(ax.title.c_str());
     }
     void Hist(TH1D* hist){
-        hist -> GetXaxis() -> SetLabelSize(0.08);
+        hist -> GetXaxis() -> SetLabelSize(0.07);
         hist -> GetXaxis() -> SetTitleOffset(0.8);
         hist -> GetXaxis() -> SetTitleSize(0.08);
         hist -> GetYaxis() -> SetTitleOffset(0.8);
-        hist -> GetYaxis() -> SetLabelSize(0.08);
+        hist -> GetYaxis() -> SetLabelSize(0.07);
         hist -> GetYaxis() -> SetTitleSize(0.08);
         hist -> GetXaxis() -> SetNdivisions(505);
         hist -> GetYaxis() -> SetNdivisions(505);

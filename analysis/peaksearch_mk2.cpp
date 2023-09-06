@@ -326,6 +326,7 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
     st.dot_size=0.8;
     st.markerstyle=20;
     st.color = kGreen;
+    st.lcolor = kGreen;
     string fntest = "all_baseline_test.root";
     string fnhon = "all_baseline"+to_string(j)+".root";
     string fnkai = "all_basekai"+to_string(j)+".root";
@@ -416,32 +417,34 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
         gausfit -> SetParameter(0,20);
         gausfit -> SetParLimits(1,-0.2,0.2);
         gausfit -> SetParameter(2,0.01);
-        
-        rep(ite,5)whist -> Fit(gausfit,"MQR","",-1,1);
+        ROOT::Math::MinimizerOptions::SetDefaultPrintLevel(-1);  // メッセージを非表示にする
+        gErrorIgnoreLevel = kWarning;  // 警告レベル以下のメッセージを無視
+        rep(ite,5)whist -> Fit(gausfit,"QE","",-1,1);
         whist -> Draw();
         double sigma = gausfit -> GetParameter(2);
         rep(k,dbin)wgraph -> SetPointError(k,0,sigma);
         //一点のみのフィットを行う
         peakf -> FixParameter(0,mfreq);
         peakf -> SetParameter(1,0.5);
-        rep(ite,5)wgraph -> Fit(peakf,"MQ","",sfreq,ffreq);
+        rep(ite,5)wgraph -> Fit(peakf,"QE","",sfreq,ffreq);
         double pout = peakf -> GetParameter(1);
         double chi = peakf -> GetChisquare();
         int ndf = peakf -> GetNDF();
+        //cout << bin << " " << sigma << endl;
         //if(abs(pout)>1)hist -> Fill(0.99);
         //hist -> Fill(pout);
         //if(abs(pout)>4*psigma[j])cout << bin << " " << pout/psigma[j] << endl;
         //cout << bin << " -> " << sigma << endl;
         //cout << "pout : " << pout << " && chi/ndf : " << chi/ndf << endl;
-        axrange axw = {sfreq,ffreq,-2,1,0,1,"fit_example;Freq[GHz];WhiteNoise[K]"};
+        axrange axw = {sfreq,ffreq,-1,1,0,1,"fit_example;Freq[GHz];WhiteNoise[K]"};
         st.GraphErrors(wgraph,axw);
-        wgraph -> Draw("AP");
-        peakf -> Draw("same");
+        /*wgraph -> Draw("AP");
+        peakf -> Draw("same");*/
         //ここでデータを格納
         //que.push(pout);
         if(abs(pout)>4*psigma[j])cout << bin << " " << pout/psigma[j] << endl;
-        hist -> Fill(pout/psigma[j]);
-        
+        if(abs(pout*2*kb*df)<4*pow(10,-18))hist -> Fill(pout*2*kb*df);
+        else hist -> Fill(3.99*pow(10,-18));
         bin-=offset;
         //st.GraphErrors(wgraph,axw);
         //wgraph -> Draw("AP");
@@ -457,31 +460,30 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
 //これがメイン関数
 void peaksearch_mk2(){
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-    c1 -> SetMargin(0.15,0.1,0.2,0.1);
+    c1 -> SetMargin(0.12,0.14,0.2,0.1);
     const char* filename = "all_baseline0.root";
     const char* fntest = "all_baseline_test.root";
     //まずはそれぞれ別々の情報が詰められているか確認する
     TH1D* whitehist = new TH1D("whitehist","WhiteNoise;white_noise;Count",100,-1,1);
     TH1D* peakhist = new TH1D("peakhist","peakhist;P[kHz*K];Count",100,-1,1);
     TH1D* normhist = new TH1D("normhist","NormHist;Sigma;Count",100,-10,10);
+    TH1D* wpeakhist = new TH1D("wpeakhist","P_fit;P_fit[W];Count",100,-4*pow(10,-18),4*pow(10,-18));
     //TH1D* chihist = new TH1D("chihist","chihist;Chi2/NDF;Count",100,0,10);
     //TF1* gausfit = new TF1("gausfit","gaus",-1,1);
     //TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],18,0.1)");
-    queue<double> que;
-    queue<pair<int,double>> pque;
-
-    for(int fn=3;fn<4;fn++){
+    
+    for(int fn=0;fn<4;fn++){
         for(int offset=0;offset<30;offset++){
             //PrintEntryInfo(filename,tname,10);
             //WhiteCheck(offset,5,fn,1,whitehist);
-            PeakFit(offset,5,fn,1,normhist);
+            PeakFit(offset,5,fn,1,wpeakhist);
             //ChiCheck(offset,5,fn);
         }
     }
-    st.Hist(normhist);
-    normhist -> Draw();
+    st.Hist(wpeakhist);
+    wpeakhist -> Draw();
     c1 -> SetLogy();
-    normhist -> Fit("gaus");
+    wpeakhist -> Fit("gaus");
     /*st.Hist(chihist);
     int entnum = chihist -> GetEntries();
     int maxbin = chihist -> GetMaximumBin();
