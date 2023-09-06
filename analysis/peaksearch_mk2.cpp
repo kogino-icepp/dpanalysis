@@ -29,7 +29,7 @@ string saveexe = "/Users/oginokyousuke/data/search_exe/";
 Fitter ft;
 axrange axscale = {0,1,0,1,0,1,"test_data;xscale;yscale"};
 vector<int> sbin = {0,512,-512,-1024};
-double psigma[4] = {0.17664,0.179145,0.190872,0.11982};
+double psigma[4] = {0.17664,0.179145,0.190872,0.183897};
 //フィットに使う諸々の関数群
 Double_t chiF_free(double x,double p0,double k,double p1){
     return p0*TMath::Gamma(k/2,x/(2*p1));
@@ -372,7 +372,7 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
     //st.Graph(pgraph,axraw);
     //pgraph -> Draw("AP");
     //サーチするビンはベースライン基点からさらに15binあと
-    for(int bin=9155;bin<9156;bin+=dbin){
+    for(int bin=sb;bin<fb;bin+=dbin){
         TString histName = Form("whist_%d", bin);
         //cout << histName << endl;
         TH1D* whist = new TH1D(histName.Data(),"whist;white_noise[K];Count",100,-1,1);
@@ -387,7 +387,7 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
         TGraphErrors* wgraph = new TGraphErrors;
         
         if(vpfreq[bin]==DINF){
-            cout << "Pass " << endl;
+            //cout << "Pass " << endl;
             continue;
         }
         //cout << vparas[0][bin] << " " << vparas[1][bin] << " " << vparas[2][bin] << endl;
@@ -428,10 +428,10 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
         double pout = peakf -> GetParameter(1);
         double chi = peakf -> GetChisquare();
         int ndf = peakf -> GetNDF();
-        if(abs(pout)>1)hist -> Fill(0.99);
-        hist -> Fill(pout);
+        //if(abs(pout)>1)hist -> Fill(0.99);
+        //hist -> Fill(pout);
         //if(abs(pout)>4*psigma[j])cout << bin << " " << pout/psigma[j] << endl;
-        cout << bin << " -> " << sigma << endl;
+        //cout << bin << " -> " << sigma << endl;
         //cout << "pout : " << pout << " && chi/ndf : " << chi/ndf << endl;
         axrange axw = {sfreq,ffreq,-2,1,0,1,"fit_example;Freq[GHz];WhiteNoise[K]"};
         st.GraphErrors(wgraph,axw);
@@ -440,6 +440,8 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist){
         //ここでデータを格納
         //que.push(pout);
         if(abs(pout)>4*psigma[j])cout << bin << " " << pout/psigma[j] << endl;
+        hist -> Fill(pout/psigma[j]);
+        
         bin-=offset;
         //st.GraphErrors(wgraph,axw);
         //wgraph -> Draw("AP");
@@ -461,25 +463,26 @@ void peaksearch_mk2(){
     //まずはそれぞれ別々の情報が詰められているか確認する
     TH1D* whitehist = new TH1D("whitehist","WhiteNoise;white_noise;Count",100,-1,1);
     TH1D* peakhist = new TH1D("peakhist","peakhist;P[kHz*K];Count",100,-1,1);
+    TH1D* normhist = new TH1D("normhist","NormHist;Sigma;Count",100,-10,10);
     //TH1D* chihist = new TH1D("chihist","chihist;Chi2/NDF;Count",100,0,10);
     //TF1* gausfit = new TF1("gausfit","gaus",-1,1);
     //TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],18,0.1)");
     queue<double> que;
     queue<pair<int,double>> pque;
 
-    for(int fn=0;fn<1;fn++){
-        for(int offset=3;offset<4;offset++){
+    for(int fn=3;fn<4;fn++){
+        for(int offset=0;offset<30;offset++){
             //PrintEntryInfo(filename,tname,10);
             //WhiteCheck(offset,5,fn,1,whitehist);
-            PeakFit(offset,5,fn,1,peakhist);
+            PeakFit(offset,5,fn,1,normhist);
             //ChiCheck(offset,5,fn);
         }
     }
-    /*st.Hist(peakhist);
-    peakhist -> Draw();
+    st.Hist(normhist);
+    normhist -> Draw();
     c1 -> SetLogy();
-    peakhist -> Fit("gaus");
-    st.Hist(chihist);
+    normhist -> Fit("gaus");
+    /*st.Hist(chihist);
     int entnum = chihist -> GetEntries();
     int maxbin = chihist -> GetMaximumBin();
     double a = maxbin*0.1/(18-2);

@@ -189,7 +189,7 @@ void make5tree(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=1;j<4;j++){
+        for(int j=0;j<4;j++){
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -284,10 +284,10 @@ void make5tree(){
             }*/
             //後々のためにフィットで得られた諸データをrootファイルで保存したい
             filesystem::current_path(saveexe);
-            string tfname = "all_basekai"+to_string(j)+".root";
-            TFile *fout = new TFile(tfname.c_str(),"recreate");
+            //string tfname = "all_basekai"+to_string(j)+".root";
+            //TFile *fout = new TFile(tfname.c_str(),"recreate");
             
-            prep(offset,0,30){
+            /*prep(offset,0,30){
                 cout << "offset : " << offset << endl;
                 string treeName = "tree" + to_string(offset);
                 TTree *tree = new TTree(treeName.c_str(), ("tree"+to_string(offset)).c_str());
@@ -354,67 +354,61 @@ void make5tree(){
                 
             }
             fout -> Write();
+            fout -> Close();*/
+            
+            string tfname = "all_baseura"+to_string(j)+".root";
+            TFile *fout = new TFile(tfname.c_str(),"recreate");
+            prep(offset,0,30){
+                cout << "offset : " << offset << endl;
+                string treeName = "tree" + to_string(offset);
+                TTree *tree = new TTree(treeName.c_str(), ("tree"+to_string(offset)).c_str());
+                double aF,bF,cF,chiF,freqF;
+                int binF;
+                //chiはndfで割った後の値
+                tree -> Branch("a",&aF,"a/D");
+                tree -> Branch("b",&bF,"b/D");
+                tree -> Branch("c",&cF,"c/D");
+                tree -> Branch("chi",&chiF,"chi/D");
+                tree -> Branch("bin",&binF,"bin/I");
+                tree -> Branch("freq",&freqF,"freq/D");
+                for(int bin=sb;bin<fb;bin+=dbin){
+                    bin+=offset;
+                    bool hantei = false;
+                    prep(k,bin,bin+dbin){
+                        if(c_toge2[j][k] || h_toge2[j][k]){
+                            hantei = true;
+                            break;
+                        }
+                    }
+                    if(hantei){
+                        bin -= offset;
+                        continue;
+                    }
+                    double yscale = 100000;
+                    TGraphErrors* spgraph = new TGraphErrors;
+                    ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
+                    double res2;
+                    TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                    ft.allfit2(spgraph,f2,5,res2);
+                    aF = f2 -> GetParameter(0);
+                    bF = f2 -> GetParameter(1);
+                    cF = f2 -> GetParameter(2);
+                    chiF = res2;
+                    binF = bin;
+                    freqF = Freq2[bin];
+                    tree -> Fill();
+                    bin -= offset;
+                }
+                //tree2->SaveAs(tfname2.c_str());
+            }
+            fout -> Write();
             fout -> Close();
             
             
-            double ysmax = -10;
-            //TH1D* ketah = new TH1D("hetah","ketah;PrecisionKeta;Count",21,0,20);
-            //一回目のデータの処理
-            int offbin = 0;
-            
-            
-            //tree1->SaveAs(tfname1.c_str());
-            /*tree1 -> Write();
-            fout1 -> Close();*/
-
-            /*string tfname2 = "fit_res"+to_string(i)+"_"+to_string(j)+"_2.root";
-            TFile *fout2 = new TFile(tfname2.c_str(),"recreate");
-            TTree *tree2 = new TTree("tree2","tree2");
-            double aF2,bF2,cF2,chiF2,freqF2;
-            int binF2;
-            tree2 -> Branch("a",&aF2,"a/D");
-            tree2 -> Branch("b",&bF2,"b/D");
-            tree2 -> Branch("c",&cF2,"c/D");
-            tree2 -> Branch("chi",&chiF2,"chi/D");
-            tree2 -> Branch("bin",&binF2,"bin/I");
-            tree2 -> Branch("freq",&freqF2,"freq/D");
             //double ysmax = -10;
             //TH1D* ketah = new TH1D("hetah","ketah;PrecisionKeta;Count",21,0,20);
             //2回目のデータの処理
-            for(int bin=sb;bin<fb;bin+=dbin){
-                cout << 2 << " " << bin << endl;
-                bool hantei = false;
-                prep(k,bin,bin+dbin){
-                    if(c_toge2[j][k] || h_toge2[j][k]){
-                        hantei = true;
-                        break;
-                    }
-                }
-                if(hantei){
-                    continue;
-                }
-                double yscale = 100000;
-                TGraphErrors* spgraph = new TGraphErrors;
-                ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
-                double res2;
-                TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                
-                ft.all_fit(spgraph,f2,5,res2);
-                aF2 = f2 -> GetParameter(0);
-                bF2 = f2 -> GetParameter(1);
-                cF2 = f2 -> GetParameter(2);
-                chiF2 = res2;
-                binF2 = bin;
-                freqF2 = Freq2[bin];
-                tree2 -> Fill();
-                chi_hist -> Fill(res2);
-                cout << fixed;
-                cout << freqF2 << endl;
-                cout << aF2 << " : " << bF2 << " : " << cF2 << endl;
-            }
-            //tree2->SaveAs(tfname2.c_str());
-            tree2 -> Write();
-            fout2 -> Close();*/
+            
         }
         
     }
