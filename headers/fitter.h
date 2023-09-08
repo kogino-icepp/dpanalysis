@@ -282,6 +282,41 @@ class Fitter{
         }
         yscale = yrange;
     }
+    //基本はmake_scaleとほぼ同じだが元のスケールでのパラメータを再現できるよう最小値と最大値、xscale,yscaleを持ってもらう
+    void make_scale2(TGraph* mgraph,int sbin,double &yMin,double &yscale){
+        //走査範囲のレンジ調査
+        double xmin,xmax,ymin,ymax;
+        ymin = 10000;
+        ymax = -200;
+        double x1 = mgraph -> GetPointX(sbin);
+        double x2 = mgraph -> GetPointX(sbin+dbin-1);
+        if(!x1 || !x2)return;
+        xmin = min(x1,x2);
+        xmax = max(x1,x2);
+        double x,y;
+        prep(bin,sbin,sbin+dbin){
+            y = mgraph -> GetPointY(bin);
+            if(y<ymin)ymin = y;
+            if(y>ymax)ymax = y;
+        }
+        //レンジに合わせてセットポイントを変える
+        //x -> (x-x0)/xrange, y ->  (y-ymin)/yrange ??
+        
+        double xrange = xmax-xmin;
+        double yrange = ymax-ymin;
+        
+        yMin = ymin;
+        yscale = yrange;
+    }
+    //xmin,ymin,xscale,yscaleをもとにパラメータを元のスケールに直す関数
+    void rescale_para(double &a,double &b,double &c,double xmin,double ymin,double xscale,double yscale,TF1*f){
+        c = c*yscale+ymin;
+        b = b*xscale+xmin;
+        a = a*yscale/(xscale*xscale);
+        f -> SetParameter(0,a);
+        f -> SetParameter(1,b);
+        f -> SetParameter(2,c);
+    }
     vector<double> fparameters(TF1* f,int pnum){
         vector<double> para;
         rep(i,pnum){

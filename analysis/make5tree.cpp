@@ -50,7 +50,7 @@ const double kb=1.38*pow(10,-23);
 const double df=88.5*pow(10,3);
 const double Tc=76;
 const double Th=297;
-
+const double DINF=1e9;
 bool toge_hantei(vector<bool>ctoge, vector<bool>htoge, int bin, queue<int>& que){
     prep(i,bin,bin+dbin){
         if(ctoge[i] || htoge[i]){
@@ -111,6 +111,7 @@ Double_t MyFunction(double x,double p0,double p1){
 要件定義
 1. coldとhotでアウトなものは無条件に抜く
 2. mirrorに関しては4回分データを走査し、
+これ30ビンずつ違うtree作らず1binずつずらしてデータを格納するようにしたいね
 */
 void make5tree(){
     //種々のヘッダー関数を用意
@@ -190,6 +191,7 @@ void make5tree(){
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
         for(int j=0;j<4;j++){
+            cout << j << endl;
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -284,125 +286,135 @@ void make5tree(){
             }*/
             //後々のためにフィットで得られた諸データをrootファイルで保存したい
             filesystem::current_path(saveexe);
-            //string tfname = "all_basekai"+to_string(j)+".root";
-            //TFile *fout = new TFile(tfname.c_str(),"recreate");
-            
-            /*prep(offset,0,30){
-                cout << "offset : " << offset << endl;
-                string treeName = "tree" + to_string(offset);
-                TTree *tree = new TTree(treeName.c_str(), ("tree"+to_string(offset)).c_str());
-                double aF,bF,cF,chiF,freqF;
-                int binF;
-                //chiはndfで割った後の値
-                tree -> Branch("a",&aF,"a/D");
-                tree -> Branch("b",&bF,"b/D");
-                tree -> Branch("c",&cF,"c/D");
-                tree -> Branch("chi",&chiF,"chi/D");
-                tree -> Branch("bin",&binF,"bin/I");
-                tree -> Branch("freq",&freqF,"freq/D");
-                for(int bin=sb;bin<fb;bin+=dbin){
-                    //cout << bin << endl;
-                    axrange axtest = {0,1,0,1,0,1,"test;xscale;yscale"};
-                    bin += offset;
-                    bool hantei = false;
-                    prep(k,bin,bin+dbin){
-                        if(c_toge1[j][k] || h_toge1[j][k]){
-                            hantei = true;
-                            break;
-                        }
-                    }
-                    if(hantei){
-                        bin -= offset;
-                        continue;
-                    }
-                    double yscale = 100000;
-                    TGraphErrors* spgraph = new TGraphErrors;
-                    ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
-                    TGraphErrors* spgraphk = new TGraphErrors;
-                    rep(spbin,dbin){
-                        if(spbin<10 || spbin>=20){
-                            double x = spgraph -> GetPointX(spbin);
-                            double y = spgraph -> GetPointY(spbin);
-                            double ye = spgraph -> GetErrorY(spbin);
-                            spgraphk -> SetPoint(spbin,x,y);
-                            spgraphk -> SetPointError(spbin,0,ye);
-                        }
-                    }
-                    double res1,res2;
-                    TF1* f1 = new TF1("f1","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                    //TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                    ft.allfit2(spgraphk,f1,5,res1);
-                    //ft.exfit(spgraph,f2,res2);
-                    //cout << res1 << " : " << res2 << endl;
-                    st.GraphErrors(spgraphk,axtest);
-                    spgraphk -> Draw("AP");
-                    
-                    f1 -> Draw("same");
-                    //ft.all_fit(spgraph,f2,5,res2);
-                    aF = f1 -> GetParameter(0);
-                    bF = f1 -> GetParameter(1);
-                    cF = f1 -> GetParameter(2);
-                    chiF = res1;
-                    binF = bin;
-                    freqF = Freq1[bin];
-                    //cout << "parameter's are" << endl;
-                    //cout << aF << " " << bF << " " << cF << endl;
-                    //cout << res1 << " " << freqF << endl;
-                    tree -> Fill();
-                    bin-=offset;
-                }
-                
-            }
-            fout -> Write();
-            fout -> Close();*/
-            
-            string tfname = "all_baseura"+to_string(j)+".root";
+            string tfname = "allbinbase"+to_string(i)+"_"+to_string(j)+".root";
             TFile *fout = new TFile(tfname.c_str(),"recreate");
-            prep(offset,0,30){
-                cout << "offset : " << offset << endl;
-                string treeName = "tree" + to_string(offset);
-                TTree *tree = new TTree(treeName.c_str(), ("tree"+to_string(offset)).c_str());
-                double aF,bF,cF,chiF,freqF;
-                int binF;
-                //chiはndfで割った後の値
-                tree -> Branch("a",&aF,"a/D");
-                tree -> Branch("b",&bF,"b/D");
-                tree -> Branch("c",&cF,"c/D");
-                tree -> Branch("chi",&chiF,"chi/D");
-                tree -> Branch("bin",&binF,"bin/I");
-                tree -> Branch("freq",&freqF,"freq/D");
-                for(int bin=sb;bin<fb;bin+=dbin){
-                    bin+=offset;
-                    bool hantei = false;
-                    prep(k,bin,bin+dbin){
-                        if(c_toge2[j][k] || h_toge2[j][k]){
-                            hantei = true;
-                            break;
-                        }
+            
+
+            string treeName1 = "test_tree1";
+            TTree *tree1 = new TTree(treeName1.c_str(),treeName1.c_str());
+            double aF,bF,cF,chiF,freqF;
+            int binF;
+            //chiはndfで割った後の値
+            tree1 -> Branch("a",&aF,"a/D");
+            tree1 -> Branch("b",&bF,"b/D");
+            tree1 -> Branch("c",&cF,"c/D");
+            tree1 -> Branch("chi",&chiF,"chi/D");
+            tree1 -> Branch("bin",&binF,"bin/I");
+            tree1 -> Branch("freq",&freqF,"freq/D");
+            for(int bin=sb;bin<fb;bin++){
+                cout << bin << " : 1" << endl; 
+                bool hantei = false;
+                prep(k,bin,bin+dbin){
+                    if(c_toge1[j][k] || h_toge1[j][k]){
+                        hantei = true;
+                        break;
                     }
-                    if(hantei){
-                        bin -= offset;
-                        continue;
-                    }
-                    double yscale = 100000;
-                    TGraphErrors* spgraph = new TGraphErrors;
-                    ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
-                    double res2;
-                    TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
-                    ft.allfit2(spgraph,f2,5,res2);
-                    aF = f2 -> GetParameter(0);
-                    bF = f2 -> GetParameter(1);
-                    cF = f2 -> GetParameter(2);
-                    chiF = res2;
+                }
+                if(hantei){
+                    aF = DINF;
+                    bF = DINF;
+                    cF = DINF;
+                    chiF = DINF;
                     binF = bin;
                     freqF = Freq2[bin];
-                    tree -> Fill();
-                    bin -= offset;
+                    tree1 -> Fill();
+                    continue;
                 }
-                //tree2->SaveAs(tfname2.c_str());
+                double yscale = 100000;
+                TGraphErrors* spgraph = new TGraphErrors;
+                ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
+                TGraphErrors* spgraphk = new TGraphErrors;
+                rep(spbin,dbin){
+                    if(spbin<10 || spbin>=20){
+                        double x = spgraph -> GetPointX(spbin);
+                        double y = spgraph -> GetPointY(spbin);
+                        double ye = spgraph -> GetErrorY(spbin);
+                        spgraphk -> SetPoint(spbin,x,y);
+                        spgraphk -> SetPointError(spbin,0,ye);
+                    }
+                }
+                double res1,res2;
+                TF1* f1 = new TF1("f1","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                //TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                ft.allfit2(spgraphk,f1,5,res1);
+                //ft.exfit(spgraph,f2,res2);
+                //cout << res1 << " : " << res2 << endl;
+                /*st.GraphErrors(spgraphk,axtest);
+                spgraphk -> Draw("AP");
+                
+                f1 -> Draw("same");*/
+                //ft.all_fit(spgraph,f2,5,res2);
+                aF = f1 -> GetParameter(0);
+                bF = f1 -> GetParameter(1);
+                cF = f1 -> GetParameter(2);
+                chiF = res1;
+                binF = bin;
+                freqF = Freq1[bin];
+                tree1 -> Fill();
             }
+                
+            
+            
+            
+            //offsetじゃなくて1binずつデータを管理
+            string treeName2 = "test_tree2";
+            TTree *tree2 = new TTree(treeName2.c_str(),treeName2.c_str());
+            double aF2,bF2,cF2,chiF2,freqF2;
+            int binF2;
+            //chiはndfで割った後の値
+            tree2 -> Branch("a",&aF2,"a/D");
+            tree2 -> Branch("b",&bF2,"b/D");
+            tree2 -> Branch("c",&cF2,"c/D");
+            tree2 -> Branch("chi",&chiF2,"chi/D");
+            tree2 -> Branch("bin",&binF2,"bin/I");
+            tree2 -> Branch("freq",&freqF2,"freq/D");
+            for(int bin=sb;bin<fb;bin++){
+                cout << bin << " : 2" << endl; 
+                bool hantei = false;
+                prep(k,bin,bin+dbin){
+                    if(c_toge2[j][k] || h_toge2[j][k]){
+                        hantei = true;
+                        break;
+                    }
+                }
+                if(hantei){
+                    aF2 = DINF;
+                    bF2 = DINF;
+                    cF2 = DINF;
+                    chiF2 = DINF;
+                    binF2 = bin;
+                    freqF2 = Freq2[bin];
+                    tree2 -> Fill();
+                    continue;
+                }
+                double yscale = 100000;
+                TGraphErrors* spgraph = new TGraphErrors;
+                ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
+                TGraphErrors* spgraphk = new TGraphErrors;
+                rep(spbin,dbin){
+                    if(spbin<10 || spbin>=20){
+                        double x = spgraph -> GetPointX(spbin);
+                        double y = spgraph -> GetPointY(spbin);
+                        double ye = spgraph -> GetErrorY(spbin);
+                        spgraphk -> SetPoint(spbin,x,y);
+                        spgraphk -> SetPointError(spbin,0,ye);
+                    }
+                }
+                double res2;
+                TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                ft.allfit2(spgraphk,f2,5,res2);
+                aF2 = f2 -> GetParameter(0);
+                bF2 = f2 -> GetParameter(1);
+                cF2 = f2 -> GetParameter(2);
+                chiF2 = res2;
+                binF2 = bin;
+                freqF2 = Freq2[bin];
+                tree2 -> Fill();
+            }
+            //tree2->SaveAs(tfname2.c_str());
             fout -> Write();
             fout -> Close();
+            
             
             
             //double ysmax = -10;

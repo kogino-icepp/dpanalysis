@@ -72,7 +72,7 @@ void toge_scan(bool (&hantei)[nbin],double input[nbin],double sigma,double limit
     for(int bin=sb;bin<fb;bin++){
         ddinput = input[bin] + bbinput - 2*binput;
         ddinput /= input[bin]*sigma;
-        graph -> SetPoint(num,bin,ddinput);
+        graph -> SetPoint(num,freq[bin],ddinput);
         num++;
         bbinput = binput;
         binput = input[bin];
@@ -190,7 +190,7 @@ void basic_spec2(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=2;j<3;j++){
+        for(int j=0;j<1;j++){
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -269,24 +269,27 @@ void basic_spec2(){
             TGraph* ddcold2 = new TGraph;
             TGraph* ddhot1 = new TGraph;
             TGraph* ddhot2 = new TGraph;
+            TGraph* gcold1 = new TGraph;
+            TGraph* ghot1 = new TGraph;
+            TGraph* gmirror1 = new TGraph;
             toge_scan(c_toge1[j],cold1,ddcsigma,ddclim,ddcold1,Freq1);
             toge_scan(c_toge2[j],cold2,ddcsigma,ddclim,ddcold2,Freq2);
             toge_scan(h_toge1[j],hot1,ddhsigma,ddhlim,ddhot1,Freq1);
             toge_scan(h_toge2[j],hot2,ddhsigma,ddhlim,ddhot2,Freq2);
-            axrange axtoge = {0,nbin,-10,10,0,1,"toge_test;Bin;ddsigma"};
-            st.Graph(ddcold1,axtoge);
-            ddcold1 -> Draw("AL");
-            /*prep(bin,sb,fb){
+            axrange axtoge = {ifmin,ifmax,-10,10,0,1,"toge_test;Bin;ddsigma"};
+            st.Graph(ddhot1,axtoge);
+            ddhot1 -> Draw("AL");
+            prep(bin,sb,fb){
+                gcold1 -> SetPoint(bin-sb,Freq1[bin],cold1[bin]);
+                ghot1 -> SetPoint(bin-sb,Freq1[bin],hot1[bin]);
+                gmirror1 -> SetPoint(bin-sb,Freq1[bin],mirror1[bin]);
                 //cout << bin << " " << Freq1[bin] << " " << prec1[bin] << endl;
-                pgraph1 -> SetPoint(bin-sb,Freq1[bin],calres1[2][bin]);
-                //cout << calres1[0][bin] << endl;
-                pgraph1 -> SetPointError(bin-sb,0,0.1);
-                pgraph2 -> SetPoint(bin-sb,Freq2[bin],calres2[2][bin]);
-                pgraph2 -> SetPointError(bin-sb,0,0.1);
-                ggraph1 -> SetPoint(bin-sb,Freq1[bin],calres1[0][bin]);
-                ggraph2 -> SetPoint(bin-sb,Freq2[bin],calres2[0][bin]);
+                
             }
-            axg.title = "Gain1;Freq[GHz];Gain[a.u]";
+            axrange axraw = {ifmin,ifmax,0,pow(10,16),0,1,"raw_spe;Freq[GHz];cold[a.u]"};
+            st.Graph(gcold1,axraw);
+            gcold1 -> Draw("AP");
+            /*axg.title = "Gain1;Freq[GHz];Gain[a.u]";
             ax.title = "prec1;Freq[GHz];Prec[K]";
             //c1 -> SetLogy();
             st.Graph(pgraph1,ax);
@@ -305,19 +308,7 @@ void basic_spec2(){
                 ft.all_fit(spgraph,f2,5,res2);
                 f2 -> Draw("same");
                 
-            }
-            /*filesystem::current_path(savedird);
-            string gname = "mirror_temp"+to_string(i)+"_"+to_string(j)+"_1.ps";
-            c1 -> SaveAs(gname.c_str());
-
-            axg.title = "Gain2;Freq[GHz];Prec[K]";
-            ax.title = "prec2;Freq[GHz];Prec[K]";
-            st.Graph(pgraph2,ax);
-            pgraph2 -> Draw("AL");
-            //c1 -> SetLogy();
-            gname = "mirror_temp"+to_string(i)+"_"+to_string(j)+"_2.ps";
-            c1 -> SaveAs(gname.c_str());
-            filesystem::current_path(cdir);*/
+            }*/
         }
     }
 }
