@@ -363,7 +363,7 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist,queue<int>&que){
     //st.Graph(pgraph,axraw);
     //pgraph -> Draw("AP");
     //サーチするビンはベースライン基点からさらに15binあと
-    for(int bin=12485;bin<12486;bin+=dbin){
+    for(int bin=9155;bin<916;bin+=dbin){
         TString histName = Form("whist_%d", bin);
         //cout << histName << endl;
         TH1D* whist = new TH1D(histName.Data(),"whist;white_noise[K];Count",100,-1,1);
@@ -500,7 +500,7 @@ void PeakFit2(int offset,int i,int j,int p,TH1D* hist,queue<int> &que){
     //st.Graph(pgraph,axraw);
     //pgraph -> Draw("AP");
     //サーチするビンはベースライン基点からさらに15binあと
-    for(int bin=9155;bin<9156;bin+=dbin){
+    for(int bin=23255;bin<23256;bin+=dbin){
         bin+=offset;
         if(vpfreq[bin]==DINF){
             cout << "Pass " << endl;
@@ -569,7 +569,7 @@ void peaksearch_mk2(){
     //PrintEntryInfo(filename,treeName,10);
     queue<int> que;
     for(int fn=3;fn<4;fn++){
-        for(int offset=8;offset<9;offset++){
+        for(int offset=0;offset<1;offset++){
             //PrintEntryInfo(filename,treeName,10);
             //WhiteCheck(offset,5,fn,1,whitehist);
             PeakFit2(offset,5,fn,1,normhist,que);

@@ -72,7 +72,7 @@ void toge_scan(bool (&hantei)[nbin],double input[nbin],double sigma,double limit
     for(int bin=sb;bin<fb;bin++){
         ddinput = input[bin] + bbinput - 2*binput;
         ddinput /= input[bin]*sigma;
-        graph -> SetPoint(num,freq[bin],ddinput);
+        graph -> SetPoint(num,bin,ddinput);
         num++;
         bbinput = binput;
         binput = input[bin];
@@ -190,7 +190,7 @@ void basic_spec2(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=0;j<1;j++){
+        for(int j=2;j<3;j++){
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -276,10 +276,10 @@ void basic_spec2(){
             toge_scan(c_toge2[j],cold2,ddcsigma,ddclim,ddcold2,Freq2);
             toge_scan(h_toge1[j],hot1,ddhsigma,ddhlim,ddhot1,Freq1);
             toge_scan(h_toge2[j],hot2,ddhsigma,ddhlim,ddhot2,Freq2);
-            axrange axtoge = {ifmin,ifmax,-10,10,0,1,"toge_test;Bin;ddsigma"};
+            axrange axtoge = {0,nbin,-10,10,0,1,"toge_test;Bin;ddsigma"};
             st.Graph(ddhot1,axtoge);
             ddhot1 -> Draw("AL");
-            prep(bin,sb,fb){
+            /*prep(bin,sb,fb){
                 gcold1 -> SetPoint(bin-sb,Freq1[bin],cold1[bin]);
                 ghot1 -> SetPoint(bin-sb,Freq1[bin],hot1[bin]);
                 gmirror1 -> SetPoint(bin-sb,Freq1[bin],mirror1[bin]);
@@ -287,8 +287,8 @@ void basic_spec2(){
                 
             }
             axrange axraw = {ifmin,ifmax,0,pow(10,16),0,1,"raw_spe;Freq[GHz];cold[a.u]"};
-            st.Graph(gcold1,axraw);
-            gcold1 -> Draw("AP");
+            st.Graph(gmirror1,axraw);
+            1 -> Draw("AP");
             /*axg.title = "Gain1;Freq[GHz];Gain[a.u]";
             ax.title = "prec1;Freq[GHz];Prec[K]";
             //c1 -> SetLogy();
