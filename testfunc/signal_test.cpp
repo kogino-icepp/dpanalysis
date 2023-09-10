@@ -34,11 +34,11 @@ double F_sig1(double f,double f0,double P,double r){
 }
 double F_sig2(double f,double f0,double P,double r){
     if(f+dnu*r<=f0)return 0;
-    else if(f+r*dNu>f0 && f-(1-r)*dNu<=f0){
-        return P*(F_nu(f+r*dNu,f0)-F_nu(f0,f0));
+    else if(f+r*dnu>f0 && f-(1-r)*dnu<=f0){
+        return P*(F_nu(f+r*dnu,f0)-F_nu(f0,f0));
     }
     else if(f-dnu*(1-r)>f0){
-        return P*(F_nu(f+r*dNu,f0)-F_nu(f-(1-r)*dNu,f0));
+        return P*(F_nu(f+r*dnu,f0)-F_nu(f-(1-r)*dnu,f0));
     }
     else return 0;
 }
@@ -50,14 +50,15 @@ void signal_test(){
     double fmax = 223+15*dfreq;
     double Psig = 1.5*pow(10,-14);
     TH1D* hist = new TH1D("hist","test_signal;Freq[GHz];P[W/kHz]",26,fmin,fmax);
-    TF1* sigf = new TF1("sigf","F_sig2(x,[0],[1],0.5)",222,224);
+    TF1* sigf = new TF1("sigf","F_sig2(x,223,1.5*pow(10,-14),0.5)",222,224);
+    
     sigf -> SetLineWidth(5);
-    sigf -> FixParameter(0,223);
-    sigf -> FixParameter(1,Psig);
+    TGraph* graph = new TGraph(sigf);
     for(int i=0;i<30;i++){
         double freq = 223+(i-15)*dfreq;
         hist -> Fill(freq,F_sig2(freq,223,Psig,0.5));
     }
+    cout << dfreq << endl;
     st.Hist(hist);
     hist -> SetFillColor(kCyan);
     hist -> SetLineColor(kBlack);
