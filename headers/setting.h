@@ -34,8 +34,8 @@ public:
         graph -> GetXaxis() -> SetLabelSize(0.065);
         graph -> GetXaxis() -> SetTitleOffset(0.9);
         graph -> GetXaxis() -> SetTitleSize(0.08);
-        graph -> GetYaxis() -> SetTitleOffset(0.7);
-        graph -> GetYaxis() -> SetLabelSize(0.08);
+        graph -> GetYaxis() -> SetTitleOffset(0.85);
+        graph -> GetYaxis() -> SetLabelSize(0.065);
         graph -> GetYaxis() -> SetTitleSize(0.08);
         graph -> GetXaxis() -> SetNdivisions(505);
         graph -> GetYaxis() -> SetNdivisions(505);
@@ -46,6 +46,7 @@ public:
         graph -> SetLineColor(lcolor);
         graph -> SetTitle(ax.title.c_str());
     }
+    
     void GraphErrors(TGraphErrors* graph,axrange ax){
         graph -> SetMaximum(ax.ymax);
         graph -> SetMinimum(ax.ymin);
