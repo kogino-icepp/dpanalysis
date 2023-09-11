@@ -30,7 +30,8 @@
         "unordered_map": "cpp",
         "iterator": "cpp",
         "random": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "__tuple": "cpp"
     },
     "python.testing.pytestArgs": [
         "othr"

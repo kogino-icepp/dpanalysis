@@ -72,7 +72,7 @@ void toge_scan(bool (&hantei)[nbin],double input[nbin],double sigma,double limit
     for(int bin=sb;bin<fb;bin++){
         ddinput = input[bin] + bbinput - 2*binput;
         ddinput /= input[bin]*sigma;
-        graph -> SetPoint(num,freq[bin],ddinput);
+        graph -> SetPoint(num,bin,ddinput);
         num++;
         bbinput = binput;
         binput = input[bin];
@@ -190,7 +190,7 @@ void basic_spec2(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=1;j<2;j++){
+        for(int j=3;j<4;j++){
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -276,7 +276,7 @@ void basic_spec2(){
             toge_scan(c_toge2[j],cold2,ddcsigma,ddclim,ddcold2,Freq2);
             toge_scan(h_toge1[j],hot1,ddhsigma,ddhlim,ddhot1,Freq1);
             toge_scan(h_toge2[j],hot2,ddhsigma,ddhlim,ddhot2,Freq2);
-            axrange axtoge = {ifmin,ifmax,-100,100,0,1,"ddcold;Freq[GHz];ddsigma[#sigma]"};
+            axrange axtoge = {23500,23800,-30,30,0,1,"ddcold;Bin;ddsigma[#sigma]"};
             st.Graph(ddcold1,axtoge);
             ddcold1 -> Draw("AL");
             /*prep(bin,sb,fb){
@@ -286,15 +286,22 @@ void basic_spec2(){
                 //cout << bin << " " << Freq1[bin] << " " << prec1[bin] << endl;
                 
             }
-            axrange axraw = {ifmin,ifmax,0,pow(10,16),0,1,"raw_spe;Freq[GHz];cold[a.u]"};
+            axrange axraw = {ifmin,ifmax,0,pow(10,16),0,1,"Cold;Freq[GHz];cold[a.u]"};
             st.Graph(gcold1,axraw);
             gcold1 -> Draw("AL");
-            axg.title = "Gain1;Freq[GHz];Gain[a.u]";
-            ax.title = "prec1;Freq[GHz];Prec[K]";
+            cout << Freq1[9163]-Freq1[0] << endl;
+            TH1D* togehist = new TH1D("togehist","togehist;Sigma[#sigma];Count",100,-10,10);
+            prep(bin,sb,fb){
+                double ddc = ddcold1 -> GetPointY(bin);
+                togehist -> Fill(ddc);
+            }
+            c1 -> SetLogy();
+            st.Hist(togehist);
+            togehist -> Draw();
+            //axg.title = "Gain1;Freq[GHz];Gain[a.u]";
+            
             //c1 -> SetLogy();
-            st.Graph(pgraph1,ax);
-            pgraph1 -> Draw("AL");
-            int testbin = 3035;
+            /*int testbin = 3035;
             for(int bin=testbin;bin<testbin+1;bin+=dbin){
                 bool hantei = false;
                 
