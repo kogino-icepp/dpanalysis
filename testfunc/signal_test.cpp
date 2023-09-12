@@ -42,6 +42,12 @@ double F_sig2(double f,double f0,double P,double r){
     }
     else return 0;
 }
+double normchi(int k,double x){
+    return pow(k/2,(k/2))*pow(x,k/2-1)*TMath::Exp(-x*k/(2))/TMath::Gamma(k/2);
+}
+double PValue(int k,double x){
+    return 1-TMath::Gamma(k/2,(k/2)*x);
+}
 void signal_test(){
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.15,0.1,0.2,0.1);
@@ -66,6 +72,9 @@ void signal_test(){
     hist->SetMarkerColor(kBlack); // ビンのマーカーの色を黒に設定
     hist->SetLineColor(kBlack); // ビンの境界線の色を黒に設定
     hist -> SetLineWidth(2);
-    hist -> Draw("HIST");
-    sigf -> Draw("same");
+    //hist -> Draw("HIST");
+    //sigf -> Draw("same");
+    TF1* testf = new TF1("testf","normchi(25,x)",0,10);
+    testf -> Draw();
+    cout << PValue(27,2) << endl;
 }
