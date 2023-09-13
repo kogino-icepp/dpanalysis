@@ -31,7 +31,8 @@
         "iterator": "cpp",
         "random": "cpp",
         "queue": "cpp",
-        "__tuple": "cpp"
+        "__tuple": "cpp",
+        "complex": "cpp"
     },
     "python.testing.pytestArgs": [
         "othr"

@@ -34,11 +34,15 @@ public:
         graph -> GetXaxis() -> SetLabelSize(0.065);
         graph -> GetXaxis() -> SetTitleOffset(0.9);
         graph -> GetXaxis() -> SetTitleSize(0.08);
+        graph -> GetXaxis() -> SetTitleFont(42);
+        graph -> GetXaxis() -> SetLabelFont(42);
         graph -> GetYaxis() -> SetTitleOffset(0.85);
         graph -> GetYaxis() -> SetLabelSize(0.065);
         graph -> GetYaxis() -> SetTitleSize(0.08);
         graph -> GetXaxis() -> SetNdivisions(505);
         graph -> GetYaxis() -> SetNdivisions(505);
+        graph -> GetYaxis() -> SetTitleFont(42);
+        graph -> GetYaxis() -> SetLabelFont(42);
         //graph -> SetLineColor(color);
         graph -> SetMarkerColor(color);
         graph -> SetMarkerStyle(markerstyle);
@@ -53,18 +57,23 @@ public:
         graph -> GetXaxis() -> SetLimits(ax.xmin,ax.xmax);
         //graph -> GetXaxis() -> SetTickLength(0);
         graph -> GetXaxis() -> SetLabelSize(0.065);
+        graph -> GetXaxis() -> SetLabelFont(42);
         graph -> GetXaxis() -> SetTitleOffset(0.8);
         graph -> GetXaxis() -> SetTitleSize(0.08);
+        graph -> GetXaxis() -> SetTitleFont(42);
         graph -> GetYaxis() -> SetTitleOffset(0.8);
         graph -> GetYaxis() -> SetLabelSize(0.08);
         graph -> GetYaxis() -> SetTitleSize(0.08);
         graph -> GetXaxis() -> SetNdivisions(505);
         graph -> GetYaxis() -> SetNdivisions(505);
+        graph -> GetYaxis() -> SetTitleFont(42);
+        graph -> GetYaxis() -> SetLabelFont(42);
         graph -> SetMarkerStyle(markerstyle);
         graph -> SetMarkerSize(dot_size);
         graph -> SetMarkerColor(color);
         graph -> SetLineColor(lcolor);
         graph -> SetTitle(ax.title.c_str());
+        //graph -> SetTitleFont(42);
     }
     void GraphErrorsDiv(TGraphErrors* graph,axrange ax){
         graph -> SetMaximum(ax.ymax);
@@ -88,11 +97,13 @@ public:
         hist -> GetXaxis() -> SetLabelSize(0.07);
         hist -> GetXaxis() -> SetTitleOffset(0.8);
         hist -> GetXaxis() -> SetTitleSize(0.08);
+        hist -> GetXaxis() -> SetTitleFont(42);
+        hist -> GetXaxis() -> SetNdivisions(505);
         hist -> GetYaxis() -> SetTitleOffset(0.8);
         hist -> GetYaxis() -> SetLabelSize(0.07);
         hist -> GetYaxis() -> SetTitleSize(0.08);
-        hist -> GetXaxis() -> SetNdivisions(505);
         hist -> GetYaxis() -> SetNdivisions(505);
+        hist -> GetYaxis() -> SetTitleFont(42);
         double xmax = hist -> GetMaximum();
         double xmin = hist -> GetMinimum();
     }

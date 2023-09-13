@@ -10,7 +10,9 @@ using namespace std;
 #define rep(i,n) for(int i=0;i<n;i++)
 #define prep(i,m,n) for(int i=m;i<n;i++)
 #define fore(i,v) for(auto& i:v)
-
+double PValue(int k,double x){
+    return 1-k*TMath::Gamma(k/2,x/(2*k));
+}
 //特定のデータだけ引っ張ってくる用
 vector<int> lsbo = {1,3,5,13,15,17};
 vector<int> lsbi = {2,4,6,14,16,18};
@@ -72,7 +74,7 @@ void toge_scan(bool (&hantei)[nbin],double input[nbin],double sigma,double limit
     for(int bin=sb;bin<fb;bin++){
         ddinput = input[bin] + bbinput - 2*binput;
         ddinput /= input[bin]*sigma;
-        graph -> SetPoint(num,bin,ddinput);
+        graph -> SetPoint(num,freq[bin],ddinput);
         num++;
         bbinput = binput;
         binput = input[bin];
@@ -117,7 +119,7 @@ void basic_spec2(){
     Setting st;
     st.dot_size = 0.8;
     st.markerstyle = 20;
-    st.color = kBlue;
+    st.color = kRed;
     st.lcolor = kBlue;
     Fitter ft;
     CheckData cda;
@@ -190,7 +192,7 @@ void basic_spec2(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=3;j<4;j++){
+        for(int j=0;j<1;j++){
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -255,49 +257,95 @@ void basic_spec2(){
             
             vector<double> prec1 = caliblate(hot1,cold1,mirror1);
             vector<double> prec2 = caliblate(hot2,cold2,mirror2);
-            TGraphErrors* pgraph1 = new TGraphErrors;
-            TGraphErrors* pgraph2 = new TGraphErrors;
             
-            prep(bin,sb,fb+30){
-                pgraph1 -> SetPoint(bin-sb,Freq1[bin],prec1[bin]);
-                pgraph1 -> SetPointError(bin-sb,0,0.1);
-                pgraph2 -> SetPoint(bin-sb,Freq2[bin],prec2[bin]);
-                pgraph2 -> SetPointError(bin-sb,0,0.1);
-            }
             double ddc1[nbin],ddc2[nbin],ddh1[nbin],ddh2[nbin],ddm1[nbin],ddm2[nbin];
             TGraph* ddcold1 = new TGraph;
             TGraph* ddcold2 = new TGraph;
             TGraph* ddhot1 = new TGraph;
             TGraph* ddhot2 = new TGraph;
             TGraph* gcold1 = new TGraph;
+            TGraph* gcold2 = new TGraph;
+            TGraph* togecold1 = new TGraph;
+            TGraph* togecold2 = new TGraph;
             TGraph* ghot1 = new TGraph;
             TGraph* gmirror1 = new TGraph;
             toge_scan(c_toge1[j],cold1,ddcsigma,ddclim,ddcold1,Freq1);
             toge_scan(c_toge2[j],cold2,ddcsigma,ddclim,ddcold2,Freq2);
             toge_scan(h_toge1[j],hot1,ddhsigma,ddhlim,ddhot1,Freq1);
             toge_scan(h_toge2[j],hot2,ddhsigma,ddhlim,ddhot2,Freq2);
-            axrange axtoge = {23500,23800,-30,30,0,1,"ddcold;Bin;ddsigma[#sigma]"};
-            st.Graph(ddcold1,axtoge);
-            ddcold1 -> Draw("AL");
-            /*prep(bin,sb,fb){
-                gcold1 -> SetPoint(bin-sb,Freq1[bin],cold1[bin]);
-                ghot1 -> SetPoint(bin-sb,Freq1[bin],hot1[bin]);
-                gmirror1 -> SetPoint(bin-sb,Freq1[bin],mirror1[bin]);
-                //cout << bin << " " << Freq1[bin] << " " << prec1[bin] << endl;
+            axrange axtoge = {Freq1[23028],Freq1[23057],-20,20,0,1,"ddhot;Freq[GHz];ddsigma[#sigma]"};
+            TF1* upperlim = new TF1("upperlim","5",ifmin,ifmax);
+            TF1* lowerlim = new TF1("lowerlim","-5",ifmin,ifmax);
+            st.Graph(ddhot1,axtoge);
+            ddhot1 -> SetLineWidth(10);
+            ddhot1 -> Draw("AL");
+            upperlim -> SetLineWidth(10);
+            lowerlim -> SetLineWidth(10);
+            upperlim -> Draw("same");
+            lowerlim -> Draw("same");
+            int snum=0;
+            int tnum=0;
+            rep(bin,nbin){
+                gcold1 -> SetPoint(bin,Freq1[bin],cold1[bin]);
+                ghot1 -> SetPoint(bin,Freq1[bin],hot1[bin]);
+                gmirror1 -> SetPoint(bin,Freq1[bin],mirror1[bin]);
+            }
+            axrange axraw = {Freq1[23028],Freq1[23057],0,0.5*pow(10,16),0,1,"Mirror;Freq[GHz];Mirror[a.u.]"};
+            st.Graph(gmirror1,axraw);
+            st.Graph(ghot1,axraw);
+            st.Graph(togecold1,axraw);
+            gmirror1 -> SetMarkerColor(kGreen);
+            gmirror1 -> Draw("AP");
+            //togecold1 -> Draw("P");
+            TGraph* ggraph1 = new TGraph;
+            TGraph* ggraph2 = new TGraph;
+            TGraph* sysgraph1 = new TGraph;
+            TGraph* sysgraph2 = new TGraph;
+            TGraphErrors* pgraph1 = new TGraphErrors;
+            TGraphErrors* pgraph2 = new TGraphErrors;
+            TGraph* dmdg1 = new TGraph;
+            TGraph* dmdg2 = new TGraph;
+            //評価の仕方がわからないのでとりあえず差分取ってフロアで割る
+            TGraph* g1g2 = new TGraph;
+            double gain1,psys1,gain2,psys2;
+            //とりあえずコンシステントかどうかだけは眺めてみる
+            double fgain = 100;
+            rep(bin,nbin){
                 
+                gain1=(hot1[bin]-cold1[bin])/(2*kb*(Th-Tc)*df);
+                psys1=(cold1[bin]/gain1)-2*kb*Tc*df;
+                gain2=(hot2[bin]-cold2[bin])/(2*kb*(Th-Tc)*df);
+                psys2=(cold2[bin]/gain2)-2*kb*Tc*df;
+                sysgraph1 -> SetPoint(bin,Freq1[bin],psys1/(2*kb*df));
+                sysgraph2 -> SetPoint(bin,Freq2[bin],psys2/(2*kb*df));
+                ggraph1 -> SetPoint(bin,Freq1[bin],gain1);
+                ggraph2 -> SetPoint(bin,Freq2[bin],gain2);
+                dmdg1 -> SetPoint(bin,Freq1[bin],mirror1[bin]/gain1);
+                dmdg2 -> SetPoint(bin,Freq2[bin],mirror1[bin]/fgain);
+                pgraph1 -> SetPoint(bin,Freq1[bin],(mirror1[bin]/gain1-psys1)/(2*kb*df));
+                //pgraph1 -> SetPoint(bin,Freq1[bin],(mirror1[bin]/gain2-psys2)/(2*kb*df));
+                pgraph2 -> SetPoint(bin,Freq2[bin],(mirror1[bin]/gain2-psys2)/(2*kb*df));
+                g1g2 -> SetPoint(bin,Freq1[bin],(gain1-gain2)/(gain1+gain2));
+
+                //prec[bin]=((mirror[bin]/gain)-psys)/(2*kb*df);
+                //pgraph ->SetPoint(bin,Freq1[bin],prec1);
             }
-            axrange axraw = {ifmin,ifmax,0,pow(10,16),0,1,"Cold;Freq[GHz];cold[a.u]"};
-            st.Graph(gcold1,axraw);
-            gcold1 -> Draw("AL");
-            cout << Freq1[9163]-Freq1[0] << endl;
-            TH1D* togehist = new TH1D("togehist","togehist;Sigma[#sigma];Count",100,-10,10);
-            prep(bin,sb,fb){
-                double ddc = ddcold1 -> GetPointY(bin);
-                togehist -> Fill(ddc);
-            }
-            c1 -> SetLogy();
-            st.Hist(togehist);
-            togehist -> Draw();
+            
+            axrange axg= {Freq1[23028],Freq1[23057],0,pow(10,31),0,1,"Gain;Freq[GHz];Gain[a.u.]"};
+            axrange axsys= {Freq1[23028],Freq1[23057],0,300,0,1,"Psys;Freq[GHz];Psys[K]"};
+            axrange axdmdg = {Freq1[23255],Freq1[23284],0,pow(10,-15),0,1,"mirror/gain;Freq[GHz];mirror/Gain[a.u.]"};
+            axrange axp= {Freq1[23028],Freq1[23057],0,300,0,1,"Prec;Freq[GHz];Prec[K]"};
+            axrange axg1g2 = {Freq1[23255],Freq1[23284],-1,1,0,1,"(Gain1-Gain2)/(Gain1+Gain2);Freq[GHz];(g1-g2)/(g1+g2)"};
+            st.Graph(ggraph1,axg);
+            st.Graph(pgraph2,axp);
+            st.Graph(pgraph1,axp);
+            pgraph1 -> SetMarkerColor(kGreen);
+            pgraph2 -> SetMarkerColor(kRed);
+            ggraph2 -> SetMarkerColor(kRed);
+            pgraph1 -> Draw("AP");
+            pgraph2 -> Draw("P");
+            //dmdg2 -> Draw("P");
+            //pgraph2 -> Draw("P");
             //axg.title = "Gain1;Freq[GHz];Gain[a.u]";
             
             //c1 -> SetLogy();

@@ -56,7 +56,7 @@ void signal_test(){
     double fmax = 223+15*dfreq;
     double Psig = 1.5*pow(10,-14);
     TH1D* hist = new TH1D("hist","test_signal;Freq[GHz];P[W/kHz]",26,fmin,fmax);
-    TF1* sigf = new TF1("sigf","F_sig2(x,223,1.5*pow(10,-14),0.5)",222,224);
+    TF1* sigf = new TF1("sigf","F_sig2(x,223,[0],0.5)",222,224);
     
     sigf -> SetLineWidth(5);
     TGraph* graph = new TGraph(sigf);
@@ -64,6 +64,8 @@ void signal_test(){
         double freq = 223+(i-15)*dfreq;
         hist -> Fill(freq,F_sig2(freq,223,Psig,0.5));
     }
+    sigf -> SetParameter(0,pow(10,-14));
+    hist -> Fit(sigf,"M","",223,223+dfreq);
     cout << dfreq << endl;
     st.Hist(hist);
     hist -> SetFillColor(kCyan);
@@ -72,9 +74,9 @@ void signal_test(){
     hist->SetMarkerColor(kBlack); // ビンのマーカーの色を黒に設定
     hist->SetLineColor(kBlack); // ビンの境界線の色を黒に設定
     hist -> SetLineWidth(2);
-    //hist -> Draw("HIST");
-    //sigf -> Draw("same");
-    TF1* testf = new TF1("testf","normchi(25,x)",0,10);
-    testf -> Draw();
-    cout << PValue(27,2) << endl;
+    hist -> Draw("HIST");
+    sigf -> Draw("same");
+    //TF1* testf = new TF1("testf","normchi(25,x)",0,10);
+    //testf -> Draw();
+    cout << PValue(26,1.73) << endl;
 }

@@ -31,7 +31,7 @@ Fitter ft;
 axrange axscale = {0,1,0,1,0,1,"test_data;xscale;yscale"};
 vector<int> sbin = {0,512,-512,-1024};
 double psigma[4] = {0.18068,0.183154,0.194241,0.186464};
-double psigma2[4] = {0.160424,0.161409,0.172565,0.166457};//ベースラインとの合わせ技でフィットした場合の温度幅
+double psigma2[4] = {0.162231,0.161409,0.172565,0.166457};//ベースラインとの合わせ技でフィット　した場合の温度幅　　ここで作ったσでnormalizeすると原義1に本当になるのか
 double wsigma[4] = {0.066,0.066,0.066,0.066};
 
 //フィットに使う諸々の関数群
@@ -75,6 +75,10 @@ double F_sig2(double f,double f0,double P,double r){
         return P*(F_nu(f+r*dNu,f0)-F_nu(f-(1-r)*dNu,f0));
     }
     else return 0;
+}
+//ノーマライズされていることは前提としてそのカイ二乗値のp値をお手軽に返してくれる関数
+double PValue(int k,double x){
+    return 1-TMath::Gamma(k/2,(k/2)*x);
 }
 void PrintEntryInfo(const char* filename, const char* treeName, Int_t numEntriesToShow) {
     filesystem::path path=filesystem::current_path();
@@ -215,7 +219,7 @@ void ChiCheck(int offset,int fn,TH1D*hist){
         Double_t chi;
         tree->SetBranchAddress("chi", &chi);
         hist -> Fill(chi);
-        cout << chi << endl;
+        //cout << chi << endl;
     }
     return;
 }
@@ -416,8 +420,8 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist,queue<int>&que){
         int ndf = peakf -> GetNDF();
         //cout << bin << " " << chi/ndf << " " << pout/psigma[j] << endl;
         //if(abs(pout)>1)hist -> Fill(0.99);
-        hist -> Fill(pout);
-        if(abs(pout)>4*psigma2[j])cout << bin << " " << pout/psigma[j] << endl;
+        if(chi/ndf<3)hist -> Fill(pout);
+        //if(abs(pout)>4*psigma2[j])cout << bin << " " << pout/psigma[j] << endl;
         //cout << bin << " -> " << sigma << endl;
         //cout << "pout : " << pout << " && chi/ndf : " << chi/ndf << endl;
         axrange axw = {sfreq,ffreq,-0.5,0.5,0,1,"fit_example;Freq[GHz];WhiteNoise[K]"};
@@ -426,12 +430,6 @@ void PeakFit(int offset,int i,int j,int p,TH1D* hist,queue<int>&que){
         peakf -> Draw("same");
         //ここでデータを格納
         //que.push(pout);
-        /*if(abs(pout)>4*psigma[j]){
-            cout << bin << " " << pout/psigma[j] << endl;
-            que.push(bin);
-        }
-        if(abs(pout*2*kb*df)<4*pow(10,-18))hist -> Fill(pout*2*kb*df);
-        else hist -> Fill(3.99*pow(10,-18));*/
         bin-=offset;
         //st.GraphErrors(wgraph,axw);
         //wgraph -> Draw("AP");
@@ -501,10 +499,11 @@ void PeakFit2(int offset,int i,int j,int p,TH1D* hist,queue<int> &que){
     //st.Graph(pgraph,axraw);
     //pgraph -> Draw("AP");
     //サーチするビンはベースライン基点からさらに15binあと
-    for(int bin=23645;bin<23646;bin+=dbin){
+    for(int bin=sb;bin<fb;bin+=dbin){
         bin+=offset;
         if(vpfreq[bin]==DINF){
             //cout << "Pass " << endl;
+            bin-=offset;
             continue;
         }
         //cout << vpfreq[bin] << endl;
@@ -518,18 +517,31 @@ void PeakFit2(int offset,int i,int j,int p,TH1D* hist,queue<int> &que){
         double yMin,yscale;
         ft.make_scale2(pgraph,bin-sb,yMin,yscale);
         ft.rescale_para(vparas[0][bin],vparas[1][bin],vparas[2][bin],sfreq,yMin,ffreq-sfreq,yscale,peakquad);
-        axrange axtest = {sfreq,ffreq,30,80,0,1,"SignalFit;Freq[GHz];Prec[K]"};
+        axrange axtest = {sfreq,ffreq,0,100,0,1,"SignalFit;Freq[GHz];Prec[K]"};
         //一からプロットし直してエラーをグローバルにつける
         TGraphErrors* fitgraph = new TGraphErrors;
+        double sigma = 0;
+        double a = peakquad -> GetParameter(0);
+        double b = peakquad -> GetParameter(1);
+        double c = peakquad -> GetParameter(2);
         rep(k,dbin){
             double x = pgraph -> GetPointX(bin-sb+k);
             double y = pgraph -> GetPointY(bin-sb+k);
+            rep(k,dbin)fitgraph -> SetPointError(k,0,0.068);
             fitgraph -> SetPoint(k,x,y);
-            fitgraph -> SetPointError(k,0,0.066);
+            if(k<10 || k>=20){
+                y -= a*(x-b)*(x-b)+c;
+                sigma += y*y;
+            }
         }
+        sigma /= 17;
+        sigma = sqrt(sigma);
+        
+        //cout << sigma << endl;
         peakquad -> FixParameter(3,mfreq);
         peakquad -> SetParameter(4,0.1);
         rep(ite,5)fitgraph -> Fit(peakquad,"QE","",sfreq,ffreq);
+        
         double pout = peakquad -> GetParameter(4);
         //pout *= 2*kb*df;
         //cout << pout << endl;
@@ -538,11 +550,14 @@ void PeakFit2(int offset,int i,int j,int p,TH1D* hist,queue<int> &que){
         peakquad -> Draw("same");
         double chi = peakquad -> GetChisquare();
         double ndf = peakquad -> GetNDF();
-        cout << pout/psigma2[j] << " : " << chi/ndf << endl;
+        //cout  << pout/psigma2[j] << " : " << chi/ndf << endl;
+        if(chi/ndf<3){
+            hist -> Fill(pout/psigma2[j]);
+            //if(abs(pout/psigma2[j])>5) que.push(bin);
+        }
+        //if(chi/ndf<6)hist -> Fill(pout/psigma2[j]);
+        //else hist -> Fill(9.9);
         
-        //if(chi/ndf<1 &&  chi/ndf >0.7 && pout/psigma2[j]>2)que.push(bin);
-        if(chi/ndf<6)hist -> Fill(pout/psigma2[j]);
-        else que.push(bin);
         bin-=offset;
     }
     file -> Close();
@@ -610,7 +625,7 @@ void GetDPfit(){
                 double sfreq = pgraph -> GetPointX(bin-sb);
                 double ffreq = pgraph -> GetPointX(bin-sb+30);
                 double mfreq = pgraph -> GetPointX(bin-sb+11);
-                TF1* peakquad = new TF1("peakquad","[0]*(x-[1])*(x-[1])+[2]+F_sig2(x,[3],[4],0.5)");
+                TF1* peakquad = new TF1("peakquad","[0]*(x-[1])*(x-[1])+[2]+F_sig2(x,[3],[4],0.5)",sfreq,ffreq);
                 TGraphErrors* spgraph = new TGraphErrors;
                 double yMin,yscale;
                 ft.make_scale2(pgraph,bin-sb,yMin,yscale);
@@ -620,7 +635,7 @@ void GetDPfit(){
                     double x = pgraph -> GetPointX(bin-sb+k);
                     double y = pgraph -> GetPointY(bin-sb+k);
                     fitgraph -> SetPoint(k,x,y);
-                    fitgraph -> SetPointError(k,0,0.066);
+                    fitgraph -> SetPointError(k,0,0.06);
                 }
                 peakquad -> FixParameter(3,mfreq);
                 peakquad -> SetParameter(4,0.1);
@@ -663,11 +678,7 @@ void GetDPfit(){
 //これがメイン関数
 /*
 次の要件定義
-周波数ごとにP_fit+1.96ΔPを導出して95%棄却区間を求めたい
-1. まずは4回の測定で周波数を合わせる(sbinを各自引いたものを並べる的な)
-2. 各々データは持っているので(最悪TTree作って別途引っ張ってくるか)ピークフィットしてP_fitの平均と分散をとる
-3. +1.96ΔP(95%に相当)してPowerレベルでのlimit出してTGraphにプロット
-これなんか要らなさそうな雰囲気出てたよね？
+
 */
 void peaksearch_mk2(){
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
@@ -675,32 +686,47 @@ void peaksearch_mk2(){
     const char* filename = "all_baseura0.root";
     const char* treeName = "tree0";
     //まずはそれぞれ別々の情報が詰められているか確認する
-    //TH1D* whitehist = new TH1D("whitehist","WhiteNoise;white_noise;Count",100,-1,1);
+    TH1D* whitehist = new TH1D("whitehist","WhiteNoise;white_noise;Count",100,-1,1);
     //TH1D* peakhist = new TH1D("peakhist","peakhist;P[W];Count",100,-5*pow(10,-18),5*pow(10,-18));
-    TH1D* normhist = new TH1D("normhist","NormHist;Sigma;Count",100,-10,10);
+    TH1D* normhist = new TH1D("normhist","P_{fit}/#DeltaP;P_{fit}/#DeltaP;Count",100,-10,10);
     //TH1D* wpeakhist = new TH1D("wpeakhist","P_fit;P_fit[W];Count",100,-4*pow(10,-18),4*pow(10,-18));
-    TH1D* chihist = new TH1D("chihist","chihist;Chi2/NDF;Count",100,0,10);
+    TH1D* chihist = new TH1D("chihist","chihist;Chi2/NDF;Count",100,0,5);
     //TF1* gausfit = new TF1("gausfit","gaus",-1,1);
-    //TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],25,0.1)");
+    TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],17,0.05)",0,5);
     //PrintEntryInfo(filename,treeName,10);
     queue<int> que;
     //GetDPfit();
-    for(int fn=3;fn<4;fn++){
-        for(int offset=6;offset<7;offset++){
+    for(int fn=0;fn<1;fn++){
+        for(int offset=0;offset<30;offset++){
             //PrintEntryInfo(filename,treeName,10);
             //WhiteCheck(offset,5,fn,1,whitehist);
-            PeakFit2(offset,5,fn,1,normhist,que);
-            //ChiCheck(offset,fn,whitehist);
+            //PeakFit2(offset,5,fn,1,normhist,que);
+            ChiCheck(offset,fn,normhist);
         }
     }
-    /*while(!que.empty()){
-        auto v = que.front();que.pop();
-        cout << v << endl;
-    }
+    gStyle->SetOptFit(1111);
     c1 -> SetLogy();
     st.Hist(normhist);
     normhist -> Draw();
     normhist -> Fit("gaus");
+    while(!que.empty()){
+        auto v = que.front();que.pop();
+        cout << v << endl;
+    }
+    /*c1 -> SetLogy();
+    st.Hist(chihist);
+    gStyle->SetOptFit(1111);
+    chihist -> Draw();
+    int entnum = chihist -> GetEntries();
+    int xmax = chihist -> GetMaximumBin();
+    double a = xmax*0.1*15.0/17.0;
+    chifit -> FixParameter(0,entnum);
+    chifit -> FixParameter(1,0.038462);
+    chifit -> Draw("same");
+    // 
+    // 
+    // chifit -> SetParameter(1,0.04);
+    // chihist -> Fit(chifit);
     //詰められたホワイトノイズやχ^2/ndfが正常かどうかを確認するプログラム*/
     return;
 }
