@@ -12,7 +12,8 @@ const double kb=1.38*pow(10,-23);
 const double df=88.5*pow(10,3);
 const double Tc=76;
 const double Th=297;
-
+const double Aeff = 0.385;
+const double rho = 0.3*1.602*pow(10,-2);//DMの密度(をSI単位系に直したもの)
 
 double v_conv(double f,double f0){
     double rtn=c*sqrt(1-((f0/f)*(f0/f)));
@@ -45,38 +46,69 @@ double F_sig2(double f,double f0,double P,double r){
 double normchi(int k,double x){
     return pow(k/2,(k/2))*pow(x,k/2-1)*TMath::Exp(-x*k/(2))/TMath::Gamma(k/2);
 }
+double CoupConst(double p,double dp){
+    if(p<0)return sqrt(3*1.96*dp/(2*Aeff*rho));
+    else return sqrt(3*(p+1.96*dp)/(2*Aeff*rho));
+}
+double CoupConst2(double p,double dp){
+    if(p<0)return 4.5*pow(10,-14)*sqrt(dp*1.96*pow(10,23))*sqrt(1/Aeff);
+    else return 4.5*pow(10,-14)*sqrt((dp*1.96+p)*pow(10,23))*sqrt(1/Aeff);
+}
+//もしかして理想的な分布から出てくるp値とフィットのp-valueって違う？？
 double PValue(int k,double x){
     return 1-TMath::Gamma(k/2,(k/2)*x);
 }
+void CalculateCumulativeDistribution() {
+    // ガウシアン関数のパラメータ
+    double mean = 0.0;    // 平均
+    double sigma = 1.0;   // 標準偏差
+
+    // ガウシアン関数を定義
+    TF1 *gaussian = new TF1("gaussian", "TMath::Gaus(x, [0], [1])", -10.0, 10.0);
+    gaussian->SetParameters(mean, sigma);
+
+    // 累積分布を計算
+    TF1 *cumulative = new TF1("cumulative", "gaussian->Integral(-5, x)", -5.0, 5.0);
+
+    
+}
+
+
 void signal_test(){
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.15,0.1,0.2,0.1);
     double dfreq = 2.5/nbin;
     double fmin = 223-10*dfreq;
     double fmax = 223+15*dfreq;
-    double Psig = 1.5*pow(10,-14);
+    double Psig = pow(10,-14);
     TH1D* hist = new TH1D("hist","test_signal;Freq[GHz];P[W/kHz]",26,fmin,fmax);
     TF1* sigf = new TF1("sigf","F_sig2(x,223,[0],0.5)",222,224);
     
     sigf -> SetLineWidth(5);
-    TGraph* graph = new TGraph(sigf);
+    TGraph* graph = new TGraph;
     for(int i=0;i<30;i++){
         double freq = 223+(i-15)*dfreq;
+        graph -> SetPoint(i,freq,F_sig2(freq,223,Psig,0.5));
         hist -> Fill(freq,F_sig2(freq,223,Psig,0.5));
     }
-    sigf -> SetParameter(0,pow(10,-14));
-    hist -> Fit(sigf,"M","",223,223+dfreq);
-    cout << dfreq << endl;
-    st.Hist(hist);
-    hist -> SetFillColor(kCyan);
-    hist -> SetLineColor(kBlack);
-    hist->SetMarkerStyle(1); // ビンのマーカースタイルを設定 (1 は普通の点)
-    hist->SetMarkerColor(kBlack); // ビンのマーカーの色を黒に設定
-    hist->SetLineColor(kBlack); // ビンの境界線の色を黒に設定
-    hist -> SetLineWidth(2);
-    hist -> Draw("HIST");
-    sigf -> Draw("same");
+    sigf -> SetParameter(0,Psig*1.015);
+    /*cout << dfreq << endl;
+    axrange ax = {fmin,fmax,0,5*pow(10,-15),0,1,"TestSignal;Freq[GHz];P[W/Hz]"};
+    st.Graph(graph,ax);
+    graph -> SetFillColor(kCyan);
+    graph -> SetLineWidth(2);
+    graph -> SetLineColor(kBlack);
+    graph -> Draw("AB");
+    sigf -> Draw("same");*/
     //TF1* testf = new TF1("testf","normchi(25,x)",0,10);
     //testf -> Draw();
-    cout << PValue(26,1.73) << endl;
+    st.Hist(hist);
+    hist -> SetLineWidth(5);
+    hist -> SetLineColor(kBlack);
+    hist -> SetFillColor(kCyan);
+    hist -> Draw("HIST");
+    sigf -> Draw("same");
+    cout << PValue(26,3) << endl;
+    cout << CoupConst2(-1,2*1.358*3.8*pow(10,-19)) << endl;
+    //とりあえず比で誤魔化しているけどここは明らかにしないといけないパート
 }

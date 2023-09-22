@@ -152,7 +152,7 @@ void make5tree(){
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
     vector<pair<double,double>> pairsigma;
     
-    for(int i=5;i<6;i++){
+    for(int i=1;i<5;i++){
         double dym = 0;
         int outnum = 0;
         
@@ -190,7 +190,7 @@ void make5tree(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=3;j<4;j++){
+        for(int j=0;j<4;j++){
             cout << j << endl;
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
@@ -353,8 +353,6 @@ void make5tree(){
                 tree1 -> Fill();
             }
                 
-            
-            
             
             //offsetじゃなくて1binずつデータを管理
             string treeName2 = "test_tree2";
