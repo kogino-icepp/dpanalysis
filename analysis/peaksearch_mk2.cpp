@@ -31,6 +31,7 @@ string saveexe = "/Users/oginokyousuke/data/search_exe/";
 Fitter ft;
 axrange axscale = {0,1,0,1,0,1,"test_data;xscale;yscale"};
 vector<int> sbin = {0,512,-512,-1024};
+Color_t vcolor[5] = {kBlue,kRed,kGreen,kCyan,kMagenta};//色変えて複数パターンお絵描きしたい時の配列
 double psigma[4] = {0.18068,0.183154,0.194241,0.186464};
 double psigma2[4] = {0.162231,0.161409,0.172565,0.166457};//ベースラインとの合わせ技でフィット　した場合の温度幅　　ここで作ったσでnormalizeすると原義1に本当になるのか
 double wsigma[4] = {0.066,0.066,0.066,0.066};
@@ -39,13 +40,6 @@ double wsigma[4] = {0.066,0.066,0.066,0.066};
 Double_t chiF_free(double x,double p0,double k,double p1){
     return p0*TMath::Gamma(k/2,x/(2*p1));
 }
-/// @brief 
-/// @param x 
-/// @param p0 
-/// @param p1 
-/// @param k 
-/// @param bin 
-/// @return 
 Double_t chiF_freefit(double x,double p0,double p1,double k,double bin){
     return (chiF_free((x+bin/2),p0,k,p1)-chiF_free((x-bin/2),p0,k,p1));
 }
@@ -158,20 +152,20 @@ void GetBasicData(int i,int j,int p,TGraph*prec){
             tree->GetEntry(0);
             if(shift==sbin.at(j)){
                 //cout << file_name << endl;
-                if(num==p && body==0){
+                if(num==(2-p) && body==0){
                     for(int bin=0;bin<nbin;bin++){
                         tree -> GetEntry(bin);
                         Freq[bin]=freq;
                         cold[bin]=power;
                     }
                 }
-                else if(num==p && body==1){
+                else if(num==(2-p) && body==1){
                     for(int bin=0;bin<nbin;bin++){
                         tree->GetEntry(bin);
                         hot[bin]=power;
                     }
                 }
-                else if(num==p && body==2){
+                else if(num==(2-p) && body==2){
                     for(int bin=0;bin<nbin;bin++){
                         tree->GetEntry(bin);
                         mirror[bin]=power;
@@ -191,125 +185,7 @@ void GetBasicData(int i,int j,int p,TGraph*prec){
     }
     return;
 }
-/// @brief 
-/// @param offset 
-/// @param i 
-/// @param fn 
-/// @param hist 
-void ChiCheck(int offset,int fn,TH1D*hist){
-    filesystem::path path=filesystem::current_path();
-    filesystem::current_path(saveexe);
-    Setting st;
-    string fnhon = "all_baseline"+to_string(fn)+".root";
-    string fnkai = "all_basekai"+to_string(fn)+".root";
-    string fnura = "all_baseura"+to_string(fn)+".root";
-    string tname = "tree"+to_string(offset);
-    const char* filename = fnkai.c_str();
-    const char* treeName = tname.c_str();
-    TFile*file = TFile::Open(filename);
-    if (!file) {
-        cerr << "Error opening file " << filename << std::endl;
-        return;
-    }
-    // Get the TTree
-    TTree*tree = dynamic_cast<TTree*>(file->Get(treeName));
-    if (!tree) {
-        cerr << "Error getting tree " << treeName << " from file " << filename << std::endl;
-        file->Close();
-        return;
-    }
-    Int_t numEntries = tree->GetEntries();
-    TH1D* chihist = new TH1D("chihist","chihist;Chi2/NDF;Count",100,0,5);
-    rep(i,numEntries){
-        tree -> GetEntry(i);
-        Double_t chi;
-        tree->SetBranchAddress("chi", &chi);
-        hist -> Fill(chi);
-        //cout << chi << endl;
-    }
-    return;
-}
 
-void WhiteCheck(int offset,int i,int j,int p,TH1D*hist){
-    filesystem::path path=filesystem::current_path();
-    filesystem::current_path(saveexe);
-    /*TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-    c1 -> SetMargin(0.15,0.1,0.2,0.1);*/
-    Setting st;
-    st.dot_size=0.8;
-    st.markerstyle=20;
-    st.color = kGreen;
-    string fntest = "all_baseline_test.root";
-    string fnhon = "all_baseline"+to_string(j)+".root";
-    string fnkai = "all_basekai"+to_string(j)+".root";
-    string tname = "tree"+to_string(offset);
-    const char* filename = fnkai.c_str();
-    const char* treeName = tname.c_str();
-    TFile*file = TFile::Open(filename);
-    if (!file) {
-        cerr << "Error opening file " << filename << std::endl;
-        return;
-    }
-    // Get the TTree
-    TTree*tree = dynamic_cast<TTree*>(file->Get(treeName));
-    if (!tree) {
-        cerr << "Error getting tree " << treeName << " from file " << filename << std::endl;
-        file->Close();
-        return;
-    }
-    Int_t numEntries = tree->GetEntries();
-    vector<vector<double>> vparas(3,vector<double>(nbin));
-    vector<double> vpfreq(nbin,DINF);
-    vector<int> vbin(nbin);
-    rep(i,numEntries){
-        tree -> GetEntry(i);
-        Double_t a, b, c, chi,freq;
-        int bin;
-        tree->SetBranchAddress("a", &a);
-        tree->SetBranchAddress("b", &b);
-        tree->SetBranchAddress("c", &c);
-        tree->SetBranchAddress("chi", &chi);
-        tree->SetBranchAddress("bin", &bin);
-        tree->SetBranchAddress("freq",&freq);
-        vparas[0][bin]=a;
-        vparas[1][bin]=b;
-        vparas[2][bin]=c;
-        vpfreq[bin]=freq;
-        
-    }
-    TGraph* pgraph = new TGraph;
-    GetBasicData(i,j,p,pgraph);
-    //TH1D* whist = new TH1D("whist","WhiteNoise;white_noise[K];Count",100,-1,1);
-    for(int bin=sb;bin<fb;bin+=dbin){
-        bin+=offset;
-        if(vpfreq[bin]==DINF)continue;
-        TF1* quadf = new TF1("quadf","[0]*(x-[1])*(x-[1])+[2]",0,1);
-        TGraphErrors* wgraph = new TGraphErrors;
-        quadf -> SetParameter(0,vparas[0][bin]);
-        quadf -> SetParameter(1,vparas[1][bin]);
-        quadf -> SetParameter(2,vparas[2][bin]);
-        TGraphErrors* spgraph = new TGraphErrors;
-        double xmin,ymin,xscale,yscale;
-        //ft.make_scale2(spgraph,pgraph,bin-sb,xmin,ymin,xscale,yscale);
-        //ft.rescale_para(vparas[0][bin],vparas[1][bin],vparas[2][bin],xmin,ymin,xscale,yscale);
-        st.GraphErrors(spgraph,axscale);
-        spgraph -> Draw("AP");
-        quadf -> Draw("same");
-        // /spgraph -> Fit(quadf,"M","",0,1);
-        rep(k,dbin){
-            double xValue = spgraph -> GetPointX(k);
-            double yValue = quadf -> Eval(xValue);
-            double yTrue = spgraph -> GetPointY(k);
-            hist -> Fill((yValue-yTrue)*yscale);
-            if(abs((yValue-yTrue)*yscale)>1)hist -> Fill(0.99);
-        }
-    }
-    /*st.Hist(whist);
-    c1 -> SetLogy();
-    whist -> Draw();
-    whist -> Fit("gaus","MQ","",-1,1);*/
-    return;
-}
 //ホワイトノイズ的にきちんと詰められていそう→これに対してピークサーチをかける？
 //壊れたら嫌なので信号+ベースラインでのフィットはこっちでやる
 void PeakFit2(int offset,int i,int j,int p,TH1D* hist,vector<int>&vec){
@@ -431,15 +307,60 @@ void PeakFit2(int offset,int i,int j,int p,TH1D* hist,vector<int>&vec){
     file -> Close();
     return;
 }
+//offsetとかいうゴミ概念を除いた上でベースラインフィットがどのくらいうまくいっていたのかの確認
+void ChiCheck2(int i,int j,int p,TH1D*hist){
+    filesystem::path path=filesystem::current_path();
+    filesystem::current_path(saveexe);
+    string fname = "allbinbase"+to_string(i)+"_"+to_string(j)+".root";
+    string tname = "test_tree"+to_string(p);
+    const char* filename = fname.c_str();
+    const char* treeName = tname.c_str();
+    TFile*file = TFile::Open(filename);
+    if (!file) {
+        cerr << "Error opening file " << filename << std::endl;
+        return;
+    }
+    // Get the TTree
+    TTree*tree = dynamic_cast<TTree*>(file->Get(treeName));
+    if (!tree) {
+        cerr << "Error getting tree " << treeName << " from file " << filename << std::endl;
+        file->Close();
+        return;
+    }
+    Int_t numEntries = tree->GetEntries();
+    vector<vector<double>> vparas(3,vector<double>(nbin));
+    vector<double> vpfreq(nbin,DINF);
+    vector<int> vbin(nbin);
+    rep(i,numEntries){
+        tree -> GetEntry(i);
+        Double_t a, b, c, chi,freq;
+        int bin;
+        tree->SetBranchAddress("a", &a);
+        tree->SetBranchAddress("b", &b);
+        tree->SetBranchAddress("c", &c);
+        tree->SetBranchAddress("chi", &chi);
+        tree->SetBranchAddress("bin", &bin);
+        tree->SetBranchAddress("freq",&freq);
+        vparas[0][bin]=a;
+        vparas[1][bin]=b;
+        vparas[2][bin]=c;
+        vpfreq[bin]=freq;
+        if(chi==DINF)continue;
+        hist -> Fill(chi);
+        if(chi>3)cout << freq << " : " << chi  << endl;
+    }
+
+}
+
 //offsetとかいうゴミ概念を除いた解析プログラム、同じように動くので次は4つのデータでもってlimitをつけよう
-void GetDPfit(int i,int j,int p,TH1D*hist){
+void GetDPfit(int i,int j,int p,TH1D*hist,queue<int>&que){
     filesystem::path path=filesystem::current_path();
     filesystem::current_path(saveexe);
     Setting st;
     st.dot_size=0.8;
     st.markerstyle=20;
     st.color = kGreen;
-    st.lcolor = kBlue;
+    st.lcolor = kGreen;
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.14,0.11,0.2,0.1);
     string fname = "allbinbase"+to_string(i)+"_"+to_string(j)+".root";
@@ -482,16 +403,24 @@ void GetDPfit(int i,int j,int p,TH1D*hist){
 
     //vectorにとりあえずのフィット結果を詰める
     //どこかにグローバルなエラーと局所的なエラーを両方出すプログラムが欲しい
+    
     vector<double> Pfit(nbin,DINF);
-    for(int bin=sb;bin<fb;bin++){
-        if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF)continue;
+    for(int bin=9163;bin<9164;bin++){
+        if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF){
+            //cout << "Pass" << endl;
+            continue;
+        }
         //cout << vpfreq[bin] << endl;
         double s1 = pgraph -> GetPointX(bin-sb);
-        double s2 = pgraph -> GetPointX(bin-sb+30);
-        double mfreq = pgraph -> GetPointX(bin-sb+11);
+        double ss1 = pgraph -> GetPointX(bin-sb+1);
+        double s2 = pgraph -> GetPointX(bin-sb+29);
         double sfreq = min(s1,s2);
         double ffreq = max(s1,s2);
-        TF1* peakquad = new TF1("peakquad","[0]*(x-[1])*(x-[1])+[2]+F_sig2(x,[3],[4],0.5)");
+        double mfreq;
+        double dfreq = abs(ss1-s1);
+        if(sfreq==s1)mfreq = pgraph -> GetPointX(bin-sb+10);
+        else mfreq = pgraph -> GetPointX(bin-sb+19);
+        TF1* peakquad = new TF1("peakquad","[0]*(x-[1])*(x-[1])+[2]+F_sig2(x,[3],[4],0.5)",sfreq,ffreq);
         TF1* syokiquad = new TF1("syokiquad","[0]*(x-[1])*(x-[1])+[2]",sfreq,ffreq);
         TGraphErrors* spgraph = new TGraphErrors;
         double yMin,yscale;
@@ -513,7 +442,6 @@ void GetDPfit(int i,int j,int p,TH1D*hist){
         rep(k,dbin){
             double x = pgraph -> GetPointX(bin-sb+k);
             double y = pgraph -> GetPointY(bin-sb+k);
-            fitgraph -> SetPointError(k,0,0.068);
             fitgraph -> SetPoint(k,x,y);
             if(k<10 || k>=20){
                 sigma += pow(y-(a*(x-b)*(x-b)+c),2);
@@ -521,31 +449,39 @@ void GetDPfit(int i,int j,int p,TH1D*hist){
         }
         sigma /= 17;
         sigma = sqrt(sigma);
-        if(sigma<0.5)hist -> Fill(sigma);
-        else hist -> Fill(0.48);
-        if(sigma>3){
-            cout << bin << " " << sigma << endl;
-        }
+        //if(sigma<0.5)hist -> Fill(sigma);
+        //else hist -> Fill(0.48);
+        rep(k,bin)fitgraph -> SetPointError(k,0,sigma);
+        //if(sigma>0.2)cout << bin << " " << sigma << endl;
+        
         axrange axfit = {sfreq,ffreq,40,80,0,1,"fitgraph;Freq[GHz];Prec[K]"};
         st.GraphErrors(fitgraph,axfit);
+        //syokiquad -> Draw("same");
+        //ここでfixparameterする点を何刻みかにする
+        
+        dfreq /= 5;
         fitgraph -> Draw("AP");
-        syokiquad -> Draw("same");
+        rep(k,5){
+            peakquad -> FixParameter(3,mfreq+(k-2)*dfreq);
+            peakquad -> SetParameter(4,0.1);
+            rep(ite,5)fitgraph -> Fit(peakquad,"QE","",sfreq,ffreq);
+            peakquad -> SetLineColor(vcolor[k]);
+            peakquad -> Draw("same");
+        }
+        
         /*peakquad -> FixParameter(3,mfreq);
         peakquad -> SetParameter(4,0.1);
         rep(ite,5)fitgraph -> Fit(peakquad,"QE","",sfreq,ffreq);
-        
         double pout = peakquad -> GetParameter(4);
         //pout *= 2*kb*df;
-
-        st.GraphErrors(fitgraph,axtest);
         fitgraph -> Draw("AP");
         peakquad -> Draw("same");
         double chi = peakquad -> GetChisquare();
         double ndf = peakquad -> GetNDF();
-        if(chi/ndf<3){
-            hist -> Fill(pout);
-            Pfit[bin+11] = pout;
-        }*/
+        hist -> Fill(pout);*/
+        //que.push(pout);
+        //if(abs(pout/0.169015)>5)que.push(bin);
+        //deltaP[i*2+j+(2-p)][bin+11] = pout;
     }
     /*TF1* fgaus = new TF1("fgaus","gaus",-1,1);
     hist -> Fit(fgaus);
@@ -573,39 +509,70 @@ void GetDPfit(int i,int j,int p,TH1D*hist){
 void peaksearch_mk2(){
     
     //まずはそれぞれ別々の情報が詰められているか確認する
+    double maxbin = 0.5;
     
-    TH1D* whitehist = new TH1D("whitehist","WhiteNoise;white_noise[K];Count",100,0,0.5);
-    TH1D* normhist = new TH1D("normhist","P_{fit}/#DeltaP;P_{fit}/#DeltaP;Count",100,-10,10);
     TF1* chifit = new TF1("chifit","chiF_freefit(x,[0],[1],[2],[3])",0,5);
     //PrintEntryInfo(filename,treeName,10);
-    TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
+    
     string whitedir = "/Users/oginokyousuke/data/white_noise";
     //vector<vector<double>> vec(8,vector<double>(nbin,DINF));
     vector<int> excess;
     double deltaP[8][nbin];
     rep(i,8)rep(j,nbin)deltaP[i][j]=0;
-    for(int fn=2;fn<3;fn++){
-        for(int j=0;j<1;j++){
-            prep(p,1,2){
+    //
+    for(int fn=5;fn<6;fn++){
+        for(int j=3;j<4;j++){
+            prep(p,2,3){
+                queue<int> que; 
                 //ファイル読み出し
+                TH1D* normhist = new TH1D("normhist","P_{fit}/#DeltaP;P_{fit}/#DeltaP;Count",100,-10,10);
+                TH1D* whitehist = new TH1D("whitehist","P_{fit};P_fit[K*Hz];Count",100,-1,1);
+                TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
                 TF1* fgaus = new TF1("fgaus","gaus",-1,1);
                 string fname = "allbinbase"+to_string(fn)+"_"+to_string(j)+".root";
                 string tname = "test_tree"+to_string(p);
                 const char* filename = fname.c_str();
                 const char* treeName = tname.c_str();
-                //PrintEntryInfo(filename,treeName,4300);
-                GetDPfit(fn,j,p,whitehist);
-                TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-                c1 -> SetMargin(0.14,0.11,0.2,0.1);
-                st.Hist(whitehist);
-                c1 -> SetLogy();
-                whitehist -> Draw();
-                //whitehist -> Fit(fgaus);
-                /*double sigma = fgaus -> GetParameter("Sigma");
-                deltaP[j*2+(2-p)] = sigma;
+                //PrintEntryInfo(filename,treeName,10);
+                //ChiCheck2(fn,j,p,chihist);
+                GetDPfit(fn,j,p,whitehist,que);
+                // TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+                // c1 -> SetMargin(0.14,0.11,0.2,0.1);
+                // st.Hist(whitehist);
+                // c1 -> SetLogy();
+                // whitehist -> Draw();
+                // whitehist -> Fit(fgaus);
+                // double sigma = fgaus -> GetParameter("Sigma");
+                // cout << sigma << endl;
+                while(!que.empty()){
+                    int v = que.front();que.pop();
+                    cout << v << endl;
+                    /*double v = que.front();que.pop();
+                    v /= sigma;
+                    if(v>=10)normhist -> Fill(9.9);
+                    else if(v<=-10)normhist -> Fill(-9.9);
+                    else normhist -> Fill(v);*/
+                }
+                /*st.Hist(normhist);
+                normhist -> Draw();
+                normhist -> Fit(fgaus);
                 filesystem::current_path(whitedir);
-                string figname = "Pfit"+to_string(fn)+"_"+to_string(j)+"_"+to_string(p)+".ps";
-                c1 -> SaveAs(figname.c_str());*/
+                string figname = "normhist"+to_string(fn)+"_"+to_string(j)+"_"+to_string(p)+".ps";
+                c1 -> SaveAs(figname.c_str());
+                double entnum = chihist -> GetEntries();
+                double xnum = chihist -> GetMaximumBin();
+                double a = xnum*maxbin/(100*17);
+                chifit -> SetParameter(1,a);
+                chifit -> FixParameter(0,entnum);
+                chifit -> FixParameter(2,17);
+                chifit -> FixParameter(3,5.0/100);
+                chihist -> Fit(chifit);
+                chifit -> Draw("same");
+                a = chifit -> GetParameter(1);
+                cout << "Predicted Error : " <<0.1*sqrt(a*17) << "K" << endl;
+                //whitehist -> Fit(fgaus);
+                
+                */
             }
         }
     }
@@ -613,7 +580,7 @@ void peaksearch_mk2(){
         cout << i/2 << " : " << i%2 << " : " << deltaP[i] << endl;
     }
     //ここで処理
-    /*int pnum = 0;
+    int pnum = 0;
     rep(bin,nbin){
         int count = 0;
         rep(j,8){
@@ -631,27 +598,7 @@ void peaksearch_mk2(){
             //ChiCheck(offset,fn,normhist);
         }
     }
-    gStyle->SetOptFit(1111);
-    c1 -> SetLogy();
-    st.Hist(normhist);
-    normhist -> Draw();
-    normhist -> Fit("gaus");*/
-    //c1 -> SetLogy();
-    /*st.Hist(chihist);
-    chihist -> SetMaximum(2000);
-    //gStyle->SetOptFit(1111);
-    chihist -> Draw();
-    int entnum = chihist -> GetEntries();
-    //int xmax = chihist -> GetMaximumBin();
-    //double a = xmax*0.1*15.0/17.0;
-    chifit -> FixParameter(0,25640);
-    chifit -> FixParameter(1,0.038461538461538464);
-    chifit -> Draw("same");
-    double x = chifit -> Integral(0,10);
-    cout << x << endl;
-    // 
-    // chifit -> SetParameter(1,0.04);
-    // chihist -> Fit(chifit);
+    
     //詰められたホワイトノイズやχ^2/ndfが正常かどうかを確認するプログラム*/
     return;
 }

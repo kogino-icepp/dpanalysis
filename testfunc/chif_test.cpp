@@ -37,34 +37,15 @@ void chif_test(){
     st.dot_size = 0.8;
     st.markerstyle = 20;
     st.color = kBlue;
-    TGraph* graph = new TGraph;
+    TF1* frui = new TF1("frui","chiF_free(x,26280,17,0.03)");
+    //TF1* ffra = new TF1("ffra","chiF_freefit(x,26280,0,03,17,0.)")
+    TGraph* graph = new TGraph();
     //ヒストグラムだから多分これで良い
     double bhaba = 0.1;
     
     TF1* f_test = new TF1("f_test","chiF_freefit(x,[0],[1],27,0.1)",0,10);
     vector<int> fpara = {1,2,3,4,27};
     vector<Color_t> color = {kBlack,kBlue,kGreen,kRed,kMagenta};
-    /*rep(i,5){
-        f_test -> SetLineColor(color[i]);
-        f_test -> SetParameter(0,fpara[i]);
-        double p2 = 1.0/fpara[i];
-        f_test -> SetParameter(1,p2);
-        TGraph* graph = new TGraph(f_test);
-        if(i==0){
-            axrange ax = {0,10,0,1};
-            st.Graph(graph,ax);
-            graph -> Draw();
-        }
-        else graph -> Draw("same");
-    }*/
-    //f_test -> Draw();
-    c1 -> SetLogy();
-    f_test -> SetParameter(0,869);
-    for(int i=1;i<200;i++){
-        f_test -> SetParameter(1,0.1*i*0.04);
-        TGraph* graph = new TGraph(f_test);
-        if(i==1)graph -> Draw();
-        else graph -> Draw("same");
-    }
+    
     
 }

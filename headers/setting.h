@@ -64,7 +64,7 @@ public:
         graph -> GetYaxis() -> SetTitleOffset(0.9);
         graph -> GetYaxis() -> SetLabelSize(0.08);
         graph -> GetYaxis() -> SetTitleSize(0.08);
-        graph -> GetXaxis() -> SetNdivisions(303);
+        graph -> GetXaxis() -> SetNdivisions(304);
         graph -> GetYaxis() -> SetNdivisions(405);
         graph -> GetYaxis() -> SetTitleFont(42);
         graph -> GetYaxis() -> SetLabelFont(42);
