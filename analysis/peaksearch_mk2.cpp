@@ -353,7 +353,7 @@ void ChiCheck2(int i,int j,int p,TH1D*hist){
 }
 
 //offsetとかいうゴミ概念を除いた解析プログラム、同じように動くので次は4つのデータでもってlimitをつけよう
-void GetDPfit(int i,int j,int p,TH1D*hist,queue<int>&que){
+void GetDPfit(int i,int j,int p,TH1D*hist,queue<double>&que){
     filesystem::path path=filesystem::current_path();
     filesystem::current_path(saveexe);
     Setting st;
@@ -405,23 +405,24 @@ void GetDPfit(int i,int j,int p,TH1D*hist,queue<int>&que){
     //どこかにグローバルなエラーと局所的なエラーを両方出すプログラムが欲しい
     
     vector<double> Pfit(nbin,DINF);
-    for(int bin=9163;bin<9164;bin++){
+    for(int bin=19922;bin<19923;bin++){
         if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF){
             //cout << "Pass" << endl;
             continue;
         }
         //cout << vpfreq[bin] << endl;
-        double s1 = pgraph -> GetPointX(bin-sb);
+        double s1 = pgraph -> GetPointX(bin-sb+5);
         double ss1 = pgraph -> GetPointX(bin-sb+1);
-        double s2 = pgraph -> GetPointX(bin-sb+29);
+        double s2 = pgraph -> GetPointX(bin-sb+24);
         double sfreq = min(s1,s2);
         double ffreq = max(s1,s2);
         double mfreq;
         double dfreq = abs(ss1-s1);
+        dfreq /= 5;
         if(sfreq==s1)mfreq = pgraph -> GetPointX(bin-sb+10);
         else mfreq = pgraph -> GetPointX(bin-sb+19);
+        //ここから周波数を既にずらしにいく
         TF1* peakquad = new TF1("peakquad","[0]*(x-[1])*(x-[1])+[2]+F_sig2(x,[3],[4],0.5)",sfreq,ffreq);
-        TF1* syokiquad = new TF1("syokiquad","[0]*(x-[1])*(x-[1])+[2]",sfreq,ffreq);
         TGraphErrors* spgraph = new TGraphErrors;
         double yMin,yscale;
         ft.make_scale2(pgraph,bin-sb,yMin,yscale);
@@ -434,9 +435,6 @@ void GetDPfit(int i,int j,int p,TH1D*hist,queue<int>&que){
         double b = peakquad -> GetParameter(1);
         double c = peakquad -> GetParameter(2);
         //cout << a << " " << b << " " << c << endl;
-        syokiquad -> SetParameter(0,a);
-        syokiquad -> SetParameter(1,b);
-        syokiquad -> SetParameter(2,c);
         //ここで解析的にエラーを出す
         double sigma = 0;
         rep(k,dbin){
@@ -449,27 +447,17 @@ void GetDPfit(int i,int j,int p,TH1D*hist,queue<int>&que){
         }
         sigma /= 17;
         sigma = sqrt(sigma);
+        //cout << sigma << endl;
         //if(sigma<0.5)hist -> Fill(sigma);
         //else hist -> Fill(0.48);
-        rep(k,bin)fitgraph -> SetPointError(k,0,sigma);
+        rep(k,bin)fitgraph -> SetPointError(k,0,0.068);
         //if(sigma>0.2)cout << bin << " " << sigma << endl;
         
         axrange axfit = {sfreq,ffreq,40,80,0,1,"fitgraph;Freq[GHz];Prec[K]"};
         st.GraphErrors(fitgraph,axfit);
-        //syokiquad -> Draw("same");
-        //ここでfixparameterする点を何刻みかにする
-        
-        dfreq /= 5;
-        fitgraph -> Draw("AP");
-        rep(k,5){
-            peakquad -> FixParameter(3,mfreq+(k-2)*dfreq);
-            peakquad -> SetParameter(4,0.1);
-            rep(ite,5)fitgraph -> Fit(peakquad,"QE","",sfreq,ffreq);
-            peakquad -> SetLineColor(vcolor[k]);
-            peakquad -> Draw("same");
-        }
-        
-        /*peakquad -> FixParameter(3,mfreq);
+    
+    
+        peakquad -> FixParameter(3,mfreq);
         peakquad -> SetParameter(4,0.1);
         rep(ite,5)fitgraph -> Fit(peakquad,"QE","",sfreq,ffreq);
         double pout = peakquad -> GetParameter(4);
@@ -478,31 +466,16 @@ void GetDPfit(int i,int j,int p,TH1D*hist,queue<int>&que){
         peakquad -> Draw("same");
         double chi = peakquad -> GetChisquare();
         double ndf = peakquad -> GetNDF();
-        hist -> Fill(pout);*/
+        if(chi/ndf<5)hist -> Fill(chi/ndf);
+        else hist -> Fill(4.9);
+        if(chi/ndf>3)que.push(bin);
+        cout << "chi2/ndf : " <<chi/ndf << endl;
+        cout << "Pfit : " << pout/psigma2[j] << endl;
         //que.push(pout);
         //if(abs(pout/0.169015)>5)que.push(bin);
         //deltaP[i*2+j+(2-p)][bin+11] = pout;
     }
-    /*TF1* fgaus = new TF1("fgaus","gaus",-1,1);
-    hist -> Fit(fgaus);
-    double DPsigma = fgaus -> GetParameter("Sigma");
-    DPsigma *= 2*kb*df;
-    cout << "#DeltaP_{fit} : " << DPsigma << endl;
-    TGraph* Plim = new TGraph;
-    int pnum = 0;
-    prep(bin,sb,fb){
-        if(Pfit[bin]==DINF || vpfreq[bin]==DINF)continue;
-        else Pfit[bin] = CoupConst2(Pfit[bin]*2*kb*df,DPsigma);
-        Plim -> SetPoint(pnum,vpfreq[bin],Pfit[bin]);
-        //vec[bin+sbin[j]]=Pfit[bin];
-        pnum++;
-        cout << vpfreq[bin] << " " << Pfit[bin] << endl;
-    }
-    //これは実験的に書いてみた結果 上できちんと格納する
-    axrange axlim = {224,226,0,pow(10,-9),0,1,"#chi;Freq[GHz];#chi coupling constant"};
-    st.Graph(Plim,axlim);
-    c1 -> SetLogy();
-    Plim -> Draw("AL");*/
+    
 }
 
 //これがメイン関数
@@ -521,9 +494,9 @@ void peaksearch_mk2(){
     rep(i,8)rep(j,nbin)deltaP[i][j]=0;
     //
     for(int fn=5;fn<6;fn++){
-        for(int j=3;j<4;j++){
-            prep(p,2,3){
-                queue<int> que; 
+        for(int j=0;j<1;j++){
+            prep(p,1,2){
+                queue<double> que; 
                 //ファイル読み出し
                 TH1D* normhist = new TH1D("normhist","P_{fit}/#DeltaP;P_{fit}/#DeltaP;Count",100,-10,10);
                 TH1D* whitehist = new TH1D("whitehist","P_{fit};P_fit[K*Hz];Count",100,-1,1);
@@ -535,25 +508,25 @@ void peaksearch_mk2(){
                 const char* treeName = tname.c_str();
                 //PrintEntryInfo(filename,treeName,10);
                 //ChiCheck2(fn,j,p,chihist);
-                GetDPfit(fn,j,p,whitehist,que);
-                // TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-                // c1 -> SetMargin(0.14,0.11,0.2,0.1);
-                // st.Hist(whitehist);
-                // c1 -> SetLogy();
-                // whitehist -> Draw();
-                // whitehist -> Fit(fgaus);
-                // double sigma = fgaus -> GetParameter("Sigma");
-                // cout << sigma << endl;
+                GetDPfit(fn,j,p,chihist,que);
+                /*TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+                c1 -> SetMargin(0.14,0.11,0.2,0.1);
+                st.Hist(chihist);
+                c1 -> SetLogy();
+                chihist -> Draw();
+                chihist -> Fit(fgaus);
+                //double sigma = fgaus -> GetParameter("Sigma");
+                //cout << sigma << endl;
                 while(!que.empty()){
-                    int v = que.front();que.pop();
+                    
+                    double v = que.front();que.pop();
                     cout << v << endl;
-                    /*double v = que.front();que.pop();
                     v /= sigma;
                     if(v>=10)normhist -> Fill(9.9);
                     else if(v<=-10)normhist -> Fill(-9.9);
-                    else normhist -> Fill(v);*/
+                    else normhist -> Fill(v);
                 }
-                /*st.Hist(normhist);
+                st.Hist(normhist);
                 normhist -> Draw();
                 normhist -> Fit(fgaus);
                 filesystem::current_path(whitedir);
@@ -561,18 +534,18 @@ void peaksearch_mk2(){
                 c1 -> SaveAs(figname.c_str());
                 double entnum = chihist -> GetEntries();
                 double xnum = chihist -> GetMaximumBin();
-                double a = xnum*maxbin/(100*17);
+                double a = 1.0/17;
                 chifit -> SetParameter(1,a);
                 chifit -> FixParameter(0,entnum);
-                chifit -> FixParameter(2,17);
+                chifit -> FixParameter(2,16);
                 chifit -> FixParameter(3,5.0/100);
                 chihist -> Fit(chifit);
                 chifit -> Draw("same");
                 a = chifit -> GetParameter(1);
                 cout << "Predicted Error : " <<0.1*sqrt(a*17) << "K" << endl;
-                //whitehist -> Fit(fgaus);
+                //whitehist -> Fit(fgaus);*/
                 
-                */
+                
             }
         }
     }

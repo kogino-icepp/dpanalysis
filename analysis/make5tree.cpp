@@ -152,7 +152,7 @@ void make5tree(){
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
     vector<pair<double,double>> pairsigma;
     
-    for(int i=4;i<5;i++){
+    for(int i=6;i<25;i++){
         double dym = 0;
         int outnum = 0;
         

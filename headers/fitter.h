@@ -310,12 +310,12 @@ class Fitter{
     }
     //xmin,ymin,xscale,yscaleをもとにパラメータを元のスケールに直す関数
     void rescale_para(double &a,double &b,double &c,double xmin,double ymin,double xscale,double yscale,TF1*f){
-        c = c*yscale+ymin;
-        b = b*xscale+xmin;
-        a = a*yscale/(xscale*xscale);
-        f -> SetParameter(0,a);
-        f -> SetParameter(1,b);
-        f -> SetParameter(2,c);
+        //c = ;
+        //b = ;
+        //a = ;
+        f -> SetParameter(0,a*yscale/(xscale*xscale));
+        f -> SetParameter(1,b*xscale+xmin);
+        f -> SetParameter(2,c*yscale+ymin);
     }
     vector<double> fparameters(TF1* f,int pnum){
         vector<double> para;

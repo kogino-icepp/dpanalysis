@@ -27,10 +27,15 @@ Double_t chiF_free(double x,double p0,double k,double p1){
 Double_t chiF_freefit(double x,double p0,double p1,double k,double bin){
     return (chiF_free((x+bin/2),p0,k,p1)-chiF_free((x-bin/2),p0,k,p1));
 }
+//正規化されたchi^2/NDFにおけるp-valueを算出する
+Double_t p_value(double x,double k){
+    return 1-chiF_free(x,1,k,1/k);
+}
 /*
 inc_gamma_c() = 1/Gamma int_x^inf
 */
 void chif_test(){
+    
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.15,0.1,0.2,0.1);
     Setting st;
