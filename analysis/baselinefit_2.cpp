@@ -372,7 +372,7 @@ void baselinefit_2(){
                 }
                 double yscale = 1000000;
                 TGraphErrors* spgraph = new TGraphErrors;
-                ft.make_scale(spgraph,pgraph1,bin-sb,yscale);
+                ft.make_scale2(pgraph1,bin-sb,yscale,yscale);
                 
                 TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
                 TF1* gausfit = new TF1("gausfit","gaus",-1,1);
@@ -460,7 +460,8 @@ void baselinefit_2(){
                 if(hantei)continue;
                 double yscale = 100000;
                 TGraphErrors* spgraph = new TGraphErrors;
-                ft.make_scale(spgraph,pgraph2,bin-sb,yscale);
+                double x = 0;
+                ft.make_scale2(pgraph2,bin-sb,x,yscale);
                 TF1* f2 = new TF1("f2","[0]*(x-[1])*(x-[1])+[2]",0,1);
                 TF1* gausfit = new TF1("gausfit","gaus",-1,1);
                 double res2;

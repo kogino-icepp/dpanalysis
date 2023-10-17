@@ -253,7 +253,7 @@ class Fitter{
     void make_scale(TGraphErrors* graph,TGraph* mgraph,int sbin,double &yscale){
         //走査範囲のレンジ調査
         double xmin,xmax,ymin,ymax;
-        ymin = 10000;
+        ymin = pow(10,30);
         ymax = -200;
         double x1 = mgraph -> GetPointX(sbin);
         double x2 = mgraph -> GetPointX(sbin+dbin-1);
@@ -262,12 +262,13 @@ class Fitter{
         double x,y;
         prep(bin,sbin,sbin+dbin){
             y = mgraph -> GetPointY(bin);
+            //cout << y << endl;
             if(y<ymin)ymin = y;
             if(y>ymax)ymax = y;
         }
         //レンジに合わせてセットポイントを変える
         //x -> (x-x0)/xrange, y ->  (y-ymin)/yrange ??
-        
+        //cout << ymin << " " << ymax << endl;
         double xrange = xmax-xmin;
         double yrange = ymax-ymin;
         prep(bin,sbin,sbin+dbin){
@@ -291,8 +292,14 @@ class Fitter{
         double x1 = mgraph -> GetPointX(sbin);
         double x2 = mgraph -> GetPointX(sbin+dbin-1);
         if(!x1 || !x2)return;
-        xmin = min(x1,x2);
-        xmax = max(x1,x2);
+        if(x1<x2){
+            xmin = x1;
+            xmax = x2;
+        }
+        else{
+            xmin = x2;
+            xmax = x1;
+        }
         double x,y;
         prep(bin,sbin,sbin+dbin){
             y = mgraph -> GetPointY(bin);
@@ -447,6 +454,46 @@ class Fitter{
         }while (next_permutation(field.begin(), field.end()));
         rep(i,selnum)f->SetParameter(i,minpara[i]);
     }
+    //ダイナミックレンジが大きいor物理的な意味のない縦軸のグラフをフィットする際
+    void calfit(TGraphErrors* graph,TF1*f,int ite,double &sigma){
+        vector<pair<double,double>> points(3);
+        double x0,x1,x2,y0,y1,y2;
+        x0 = graph -> GetPointX(0);
+        y0 = graph -> GetPointY(0);
+        x1 = graph -> GetPointX(1);
+        y1 = graph -> GetPointY(1);
+        x2 = graph -> GetPointX(2);
+        y2 = graph -> GetPointY(2);
+        points[0] = {x0,y0};
+        points[1] = {x1,y1};
+        points[2] = {x2,y2};
+        vector<double> paras = GetQuadPara(points);
+        f -> SetParameter(0,paras[0]);
+        f -> SetParameter(1,paras[1]);
+        f -> SetParameter(2,paras[2]);
+        rep(ite,5)graph -> Fit(f,"QN","",0,1);
+        //rep(ite,5)graph -> Fit(f,"EQN","",0,1);
+        //rep(ite,5)graph -> Fit(f,"MQN","",0,1);
+        double x,y,yf;
+        sigma = 0;
+        rep(bin,30){
+            x = graph -> GetPointX(bin);
+            y = graph -> GetPointY(bin);
+            yf = f -> Eval(x);
+            sigma += (y-yf)*(y-yf);
+        }
+        sigma /= 27;
+        sigma = sqrt(sigma);
+        //cout << "sigma : " << sigma  << endl;
+        rep(bin,30)graph -> SetPointError(bin,0,sigma);
+        rep(ite,5)graph -> Fit(f,"QN","",0,1);
+        //rep(ite,5)graph -> Fit(f,"EQN","",0,1);
+        //rep(ite,5)graph -> Fit(f,"MQN","",0,1);
+        double chi = f -> GetChisquare();
+        int ndf = f -> GetNDF();
+        //sigmaも引数として渡して評価するのはあり
+        
+    }
     void allfit2(TGraphErrors* graph,TF1*f,int ite,double &res){
     //0以上bnum+selnum未満まで走査してくれる
         int bnum = 27;
@@ -455,7 +502,7 @@ class Fitter{
         rep(i,bnum)field.push_back(0);
         rep(i,selnum)field.push_back(1);
         vector<double> minpara(3,0);
-        double resx = 100;
+        double resx = pow(10,30);
         do{
             vector<int> ans;
             int cand_num = 0;
@@ -486,15 +533,17 @@ class Fitter{
             //cout << "---------------" << endl;
             rep(j,selnum)f -> SetParameter(j,paras[j]);
             rep(j,ite){
-                graph -> Fit(f,"MQN","",0,1);
+                graph -> Fit(f,"Q","",0,1);
             }
             double chi2 = f -> GetChisquare();
             double ndf = f -> GetNDF();
+            
             if(ndf<5){
                 cout << "Less NDF" << endl;
                 exit(1);
             }
             if(resx>chi2/ndf){
+                cout << chi2 << " " << ndf << endl;
                 resx = chi2/ndf;
                 rep(j,selnum)minpara[j]=f->GetParameter(j);
             }
