@@ -5,7 +5,7 @@
 #include <format>
 #include <tuple>
 #include "../headers/fitter.h"
-
+#include "../headers/mask_map.h"
 using namespace std;
 #define rep(i,n) for(int i=0;i<n;i++)
 #define prep(i,m,n) for(int i=m;i<n;i++)
@@ -24,6 +24,7 @@ string xfftname[4] = {"lsbo","lsbi","usbi","usbo"};
 vector<double> errorv = {0.063,0.066,0.067,0.078,0.066,0.087,0.067,0.062,0.073,0.061,0.089,0.061,0.091,0.142,0.082,0.097,0.087,0.107,0.131,0.087,0.093,0.077,0.103,0.096};
 //共通の物理量
 vector<Color_t> gColor = {kBlue,kRed,kGreen,kMagenta};
+const int falchan = 24061;
 const int nbin=32767;
 const int ssb = 2621;//探索すべきビンの最初
 const int sfb = 28835;//探索すべきビンの最後
@@ -87,7 +88,7 @@ void toge_scan(bool (&hantei)[nbin],double input[nbin],double sigma,double limit
         if(abs(ddinput) > limit)hantei[bin] = true;
     }
 }
-void toge_scan2(bool (&hantei)[nbin],double input[nbin],double &sigma,TGraph* graph){
+void toge_scan2(bool (&hantei)[nbin],double input[nbin],double &sigma,double (&tvalue)[nbin]){
     random_device rnd;     // 非決定的な乱数生成器を生成
     mt19937 mt(rnd());     //  メルセンヌ・ツイスタの32ビット版、引数は初期シード値
     uniform_int_distribution<> rand1000(0, 9999);  
@@ -112,7 +113,7 @@ void toge_scan2(bool (&hantei)[nbin],double input[nbin],double &sigma,TGraph* gr
     int num = 0;
     for(int bin=sb;bin<fb;bin++){
         if(abs(togevalue[bin])>5*sigma)hantei[bin] = true;
-        graph -> SetPoint(num,bin,togevalue[bin]/sigma);
+        tvalue[bin] = togevalue[bin]/sigma;
         num++;
     }
 }
@@ -144,17 +145,20 @@ Double_t MyFunction(double x,double p0,double p1){
 }
 
 //パラメータ数を可変にしたときのフィッティング関数 できればフィット後のステータスも知りたい
-/*
-要件定義
-1. coldとhotでアウトなものは無条件に抜く
-2. mirrorに関しては4回分データを走査し、
-*/
-//棘の始まりと終わりをここに記録しておく、一旦正直な区間を書く、for文にすれば定義も手間じゃない
 
+//ミラーのみにしても点単位ではなく探索できなくなるmass単位でダメな点をカウントする
 void basic_spec2(){
+    Mask ms;
+    vector<vector<int>> vec = ms.maskmap;
+    bool hantei[4][nbin];
+    rep(xfft,4)rep(bin,nbin)hantei[xfft][bin] = false;
+    rep(xfft,4){
+        for(auto v:vec[xfft])hantei[xfft][v] = true;
+    }
     //今回の目玉となる、取り除きたいデータセット
-    int mnomi = 0;//これがクライテリアで0になるかどうかが大事な点の一つ
+    int togenum = 0;
     int hnomi = 0;
+    int mnomi = 0;
     //種々のヘッダー関数を用意
     Setting st;
     st.dot_size = 0.8;
@@ -162,7 +166,6 @@ void basic_spec2(){
     st.color = kBlue;
     st.lcolor = kBlue;
     Fitter ft;
-    CheckData cda;
     //お絵描きの設定など
     Double_t xlo=215;
     Double_t xhi=264;
@@ -209,7 +212,13 @@ void basic_spec2(){
     bool maskchannel[nbin][4];
     rep(bin,nbin)rep(xfft,4)maskchannel[bin][xfft] = false;
     //最初に24セットでmaskchannel作る、それでもう一回for(i)を見たい帯域で回す
+    TH1D* mexcess = new TH1D("mexcess","mexcess;Sigma;Count",100,5,20);
+    //for(auto)
+    //要件定義(周波数のスキャンが潰れたところを精査したい)チャンネルを全パターンboolで持っておくしかないンゴ！
     for(int i=1;i<25;i++){
+        bool freqmap[nbin];
+        int x = 0;
+        rep(bin,nbin)freqmap[bin] = false;//一回でも探索したらtrueに変更する、最終的にfalseがあるかを計上？
         //band番号が奇数なら昇順、偶数なら降順のはず、昇順ならずらしたビンだけ引けばいい(どっちも同じじゃなくて？)
         int xfft = XFFT(i);
         string cdir=dir+"band"+to_string(i);
@@ -229,9 +238,9 @@ void basic_spec2(){
             }
         }
         for(int j=0;j<4;j++){
+            
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
-            
             //ビンのシフトをここでいじる
             for(int data=0;data<576;data++){
                 string file_name="test"+to_string(data)+".root";
@@ -291,6 +300,7 @@ void basic_spec2(){
                     }
                 }
             }
+            
             //積分値(平均値)
             double Cold[nbin],Hot[nbin],Mirror[nbin];
             rep(bin,nbin){
@@ -299,36 +309,92 @@ void basic_spec2(){
                 Mirror[bin] = (mirror1[bin] + mirror2[bin])/2;
             }
             
-            axrange axdd = {0,nbin,-10,10,0,1,"ddcold;bin;sigma"};
+            axrange axdd = {17390,17430,-10,10,0,1,"ddcold;bin;sigma"};
+            axrange axraw = {17390,17430,0,pow(10,16),0,1,"Cold;Bin;Cold[a.u]"};
             double Csigma,Hsigma,Msigma;
-            TGraph* ddcold = new TGraph;
-            TGraph* ddhot = new TGraph;
-            TGraph* ddmirror = new TGraph;
+            double ddcold[nbin],ddhot[nbin],ddmirror[nbin];
             toge_scan2(Ctoge[j],Cold,Csigma,ddcold);
             toge_scan2(Htoge[j],Hot,Hsigma,ddhot);
             toge_scan2(Mtoge[j],Mirror,Msigma,ddmirror);
-            st.Graph(ddcold,axdd);
-            ddcold -> SetLineColor(gColor[j]);
-            //あくまでxfft上でマスクするのを忘れずに
+            //ここで作ったboolの配列を30binごとに区切って区間の中に棘を入れないようにする→何データ死ぬかを確認
             prep(bin,sb,fb){
-                if(maskchannel[bin][xfft])continue;
-                if(!Ctoge[j][bin] && !Htoge[j][bin] && Mtoge[j][bin])mnomi++;
+                bool chantei = false;
+                bool hhantei = false;
+                bool mhantei = false;
+                bool maskhantei = false;
+                rep(ad,dbin){
+                    if(hantei[xfft][bin+ad]){
+                        maskhantei = true;
+                        break;
+                    }
+                    if(Ctoge[j][bin+ad])chantei = true;
+                    if(Htoge[j][bin+ad])hhantei = true;
+                    if(Mtoge[j][bin+ad])mhantei = true;
+                }
+                if(!maskhantei){
+                    if(i%2==1)freqmap[bin+11-sbin[j]] = true;
+                    else freqmap[bin+11+sbin[j]] = true;
+                }
+                /*if(maskhantei)continue;
+                if(chantei || hhantei)togenum++;
+                else if(!chantei && hhantei)hnomi++;
+                else if(!chantei && !hhantei && mhantei){
+                    //cout << j << " " << bin << endl;
+                    mnomi++;
+                }*/
             }
             
-            rep(bin,nbin)if(Ctoge[j][bin] || Htoge[j][bin])maskchannel[bin][xfft] = true;
+            TGraph* gcold = new TGraph;
+            TGraph* ghot = new TGraph;
+            TGraph* gmirror = new TGraph;
+            TGraph* ddgcold = new TGraph;
+            TGraph* ddghot = new TGraph;
+            TGraph* ddgmirror = new TGraph;
+            rep(bin,nbin){
+                gcold -> SetPoint(bin,bin,Cold[bin]);
+                ghot -> SetPoint(bin,bin,Hot[bin]);
+                gmirror -> SetPoint(bin,bin,Mirror[bin]);
+                ddgcold -> SetPoint(bin,bin,ddcold[bin]);
+                ddghot -> SetPoint(bin,bin,ddhot[bin]);
+                ddgmirror -> SetPoint(bin,bin,ddmirror[bin]);
+            }
+
+            //怪しいチャンネルがどこで反応しているのか、何点反応しているのかなどを確かめる
+            //cout << ddcold[falchan-1024] << " " << ddhot[falchan-1024] << endl;
+            st.Graph(gcold,axraw);
+            st.Graph(gmirror,axraw);
+            st.Graph(ddgcold,axdd);
+            st.Graph(ddgmirror,axdd);
+            //ddgcold -> SetLineColor(gColor[j]);
+            gmirror -> SetLineColor(kGreen);
+            ddgcold -> SetLineColor(kBlue);
+            ddgmirror -> SetLineColor(kGreen);
+            ghot -> SetLineColor(kRed);
+            gcold -> Draw("AL");
+            //ddgcold -> Draw("AL");
+            //ghot -> Draw("L");
+            
         }
+        
+        prep(bin,sb+11,fb){
+            if(!freqmap[bin]){
+                //cout << bin << endl;
+                x++;
+            }
+        }
+        cout << "x : " << x << endl;
+    
     }
-    cout << "before : " << mnomi << endl;
+    
+    /*cout << "before : " << mnomi << endl;
     //xfft4パターン,lsbo,usbiは昇順、lsbi,usboは降順
     ofstream writing_file;
-    string filename = "maskmap.txt";
-    writing_file.open(filename,ios::out);
-    prep(xfft,3,4){
+    prep(xfft,0,4){
         //cout << xfftname[xfft] << " : ";
         int outnum = 0;
         prep(bin,sb,fb){
             if(maskchannel[bin][xfft]){
-                cout << bin  << " ," ;
+                //cout << bin  << " ," ;
                 outnum++;
             }
         }
@@ -344,7 +410,7 @@ void basic_spec2(){
                     cout << bin << " ";
                 }
             }
-        }*/
+        }
         //cout << outnum << endl;
     }
     /*int mnomi2 = 0;

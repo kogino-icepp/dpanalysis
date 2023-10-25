@@ -444,20 +444,23 @@ void GetDPfit(int i,int j,int p,TH1D*hist){
     //どこかにグローバルなエラーと局所的なエラーを両方出すプログラムが欲しい
     int xfft = XFFT(i);
     vector<double> Pfit(nbin,DINF);
+
+    TH1D* whitehist = new TH1D("whitehist","P_{fit};P_fit[K*Hz];Count",100,-1,1);
     for(int bin=sb;bin<fb;bin++){
         if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF){
             //cout << "Pass" << endl;
             continue;
         }
+        rep(ad,29){
+            if(mskhantei[xfft][bin+ad])continue;
+        }
         double sfreq,ffreq,mfreq;
         if(i%2==1){
-            if(mskhantei[xfft][bin+10])continue;
             sfreq = pgraph -> GetPointX(bin-sb);
             mfreq = pgraph -> GetPointX(bin-sb+10);
             ffreq = pgraph -> GetPointX(bin-sb+29);
         }
         else{
-            if(mskhantei[xfft][bin+19])continue;
             ffreq = pgraph -> GetPointX(bin-sb);
             mfreq = pgraph -> GetPointX(bin-sb+19);
             sfreq = pgraph -> GetPointX(bin-sb+29);
@@ -514,13 +517,15 @@ void GetDPfit(int i,int j,int p,TH1D*hist){
         fitgraph -> Draw("AP");
         peakquad -> Draw("same");
         
-        hist -> Fill(pout/0.1728);
-        //内部で正規化してあげればいいじゃない問題　ヒンメルはもういないじゃない
-        //que.push(pout);
+        whitehist -> Fill(pout);
+        
         //if(abs(pout/0.169015)>5)que.push(bin);
         //deltaP[i*2+j+(2-p)][bin+11] = pout;*/
     }
-    
+    TF1* fgaus = new TF1("fgaus","gaus",-0.2,0.2);
+    whitehist -> Fit(fgaus);
+    double sigma = fgaus -> GetParameter("Sigma");
+    cout << "sigma : " << sigma << endl;
 }
 
 //これがメイン関数
@@ -539,12 +544,14 @@ void peaksearch_mk2(){
     double deltaP[8][nbin];
     rep(i,8)rep(j,nbin)deltaP[i][j]=0;
     //
-    for(int fn=2;fn<3;fn++){
+    for(int fn=7;fn<8;fn++){
         for(int j=0;j<1;j++){
-            prep(p,1,2){
+            prep(p,1,3){
                 queue<double> que; 
                 //ファイル読み出し
-                TH1D* normhist = new TH1D("normhist","P_{fit}/#DeltaP;P_{fit}/#DeltaP;Count",100,-10,10);
+                //描画するヒストグラムの名前を毎回作る
+                string nhist = "P_{fit}/#DeltaP(" + to_string(fn)+"_"+to_string(j)+"_"+to_string(p)+");P_{fit}/#DeltaP;Count";
+                TH1D* normhist = new TH1D("normhist",nhist.c_str(),100,-10,10);
                 TH1D* whitehist = new TH1D("whitehist","P_{fit};P_fit[K*Hz];Count",100,-1,1);
                 TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
                 TF1* fgaus = new TF1("fgaus","gaus",-1,1);
@@ -561,11 +568,10 @@ void peaksearch_mk2(){
                 st.Hist(normhist);
                 normhist -> Draw();
                 normhist -> Fit("gaus");
-
-                /*filesystem::current_path(whitedir);
+                //ここでファイル保存
+                filesystem::current_path(whitedir);
                 string figname = "normhist"+to_string(fn)+"_"+to_string(j)+"_"+to_string(p)+".ps";
                 c1 -> SaveAs(figname.c_str());
-                */
                 
                 
             }

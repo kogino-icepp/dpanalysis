@@ -32,7 +32,8 @@
         "random": "cpp",
         "queue": "cpp",
         "__tuple": "cpp",
-        "complex": "cpp"
+        "complex": "cpp",
+        "filesystem": "cpp"
     },
     "python.testing.pytestArgs": [
         "othr"

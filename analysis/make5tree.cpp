@@ -152,7 +152,7 @@ void make5tree(){
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
     vector<pair<double,double>> pairsigma;
     
-    for(int i=6;i<25;i++){
+    for(int i=14;i<15;i++){
         double dym = 0;
         int outnum = 0;
         
@@ -190,7 +190,7 @@ void make5tree(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=0;j<4;j++){
+        for(int j=0;j<1;j++){
             cout << j << endl;
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
@@ -289,7 +289,6 @@ void make5tree(){
             string tfname = "allbinbase"+to_string(i)+"_"+to_string(j)+".root";
             TFile *fout = new TFile(tfname.c_str(),"recreate");
             
-
             string treeName1 = "test_tree1";
             TTree *tree1 = new TTree(treeName1.c_str(),treeName1.c_str());
             double aF,bF,cF,chiF,freqF;
