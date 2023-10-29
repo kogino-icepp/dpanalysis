@@ -93,8 +93,8 @@ void toge_scan2(bool (&hantei)[nbin],double input[nbin],double &sigma,double (&t
     mt19937 mt(rnd());     //  メルセンヌ・ツイスタの32ビット版、引数は初期シード値
     uniform_int_distribution<> rand1000(0, 9999);  
     string hname = "hist"+to_string(rand1000(mt));
-    TH1D* hist = new TH1D(hname.c_str(),"hist;ddinput;Count",100,-0.005,0.005);
-    TF1* f = new TF1("gaus","gaus",-0.005,0.005);
+    TH1D* hist = new TH1D(hname.c_str(),"hist;ddinput;Count",100,-0.002,0.002);
+    TF1* f = new TF1("gaus","gaus",-0.002,0.002);
     double binput = input[sb-1];
     double bbinput = input[sb-2];
     double ddinput;
@@ -107,6 +107,8 @@ void toge_scan2(bool (&hantei)[nbin],double input[nbin],double &sigma,double (&t
         bbinput = binput;
         binput = input[bin];
     }
+    
+    hist -> Draw();
     hist -> Fit(f,"QEN","",-0.005,0.005);
     //st.Hist(hist);
     sigma = f -> GetParameter("Sigma");
@@ -148,6 +150,7 @@ Double_t MyFunction(double x,double p0,double p1){
 
 //ミラーのみにしても点単位ではなく探索できなくなるmass単位でダメな点をカウントする
 void basic_spec2(){
+    //coldとmirrorの二階微分の相関？グラフを作成して有意に差があるか見てみるkernel空間
     Mask ms;
     vector<vector<int>> vec = ms.maskmap;
     bool hantei[4][nbin];
@@ -174,6 +177,7 @@ void basic_spec2(){
 
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.15,0.1,0.2,0.1);
+    
     /*c1 -> Divide(1,2);
     c1 -> cd(1);*/
     TH1F *frame=gPad->DrawFrame(xlo,ylo,xhi,yhi);
@@ -209,12 +213,13 @@ void basic_spec2(){
     }
     //ミリ波上で棄却されるエリアを記録する、統計がそもそも何点か+その中で捨てたデータが何点あるか、で見る
     //全周波数統一のマップ作る？(測定を超えた被り領域があるので)->めんどいから一旦そのままな
-    bool maskchannel[nbin][4];
-    rep(bin,nbin)rep(xfft,4)maskchannel[bin][xfft] = false;
+    bool maskchannel[4][nbin];
+    rep(xfft,4)rep(bin,nbin)maskchannel[xfft][bin] = false;
     //最初に24セットでmaskchannel作る、それでもう一回for(i)を見たい帯域で回す
     TH1D* mexcess = new TH1D("mexcess","mexcess;Sigma;Count",100,5,20);
-    //for(auto)
-    //要件定義(周波数のスキャンが潰れたところを精査したい)チャンネルを全パターンboolで持っておくしかないンゴ！
+    TGraph* cmgsigma = new TGraph;//ここにミラーとcoldのσを
+    int cmnum = 0;
+    //要件定義：map作り直し、きちんと切れているか確認すること
     for(int i=1;i<25;i++){
         bool freqmap[nbin];
         int x = 0;
@@ -309,19 +314,23 @@ void basic_spec2(){
                 Mirror[bin] = (mirror1[bin] + mirror2[bin])/2;
             }
             
-            axrange axdd = {17390,17430,-10,10,0,1,"ddcold;bin;sigma"};
-            axrange axraw = {17390,17430,0,pow(10,16),0,1,"Cold;Bin;Cold[a.u]"};
+            axrange axdd = {12439,12469,-10,10,0,1,"ddcold;bin;sigma"};
+            axrange axraw = {12439,12469,0,pow(10,16),0,1,"Cold;Bin;Cold[a.u]"};
+            axrange axd = {12439,12469,0,pow(10,16),0,1,"dcold;Bin;dcold[a.u]"};
             double Csigma,Hsigma,Msigma;
             double ddcold[nbin],ddhot[nbin],ddmirror[nbin];
             toge_scan2(Ctoge[j],Cold,Csigma,ddcold);
             toge_scan2(Htoge[j],Hot,Hsigma,ddhot);
             toge_scan2(Mtoge[j],Mirror,Msigma,ddmirror);
+            cmgsigma -> SetPoint(cmnum,Csigma,Hsigma);
+            cmnum++;
             //ここで作ったboolの配列を30binごとに区切って区間の中に棘を入れないようにする→何データ死ぬかを確認
-            prep(bin,sb,fb){
+            /*prep(bin,sb,fb){
                 bool chantei = false;
                 bool hhantei = false;
                 bool mhantei = false;
                 bool maskhantei = false;
+                if(Ctoge[j][bin] || Htoge[j][bin])maskchannel[xfft][bin] = true;
                 rep(ad,dbin){
                     if(hantei[xfft][bin+ad]){
                         maskhantei = true;
@@ -331,17 +340,13 @@ void basic_spec2(){
                     if(Htoge[j][bin+ad])hhantei = true;
                     if(Mtoge[j][bin+ad])mhantei = true;
                 }
-                if(!maskhantei){
-                    if(i%2==1)freqmap[bin+11-sbin[j]] = true;
-                    else freqmap[bin+11+sbin[j]] = true;
-                }
-                /*if(maskhantei)continue;
+                if(maskhantei)continue;
                 if(chantei || hhantei)togenum++;
                 else if(!chantei && hhantei)hnomi++;
                 else if(!chantei && !hhantei && mhantei){
                     //cout << j << " " << bin << endl;
                     mnomi++;
-                }*/
+                }
             }
             
             TGraph* gcold = new TGraph;
@@ -350,69 +355,44 @@ void basic_spec2(){
             TGraph* ddgcold = new TGraph;
             TGraph* ddghot = new TGraph;
             TGraph* ddgmirror = new TGraph;
+            TGraph* dgcold = new TGraph;
+            TGraph* dgmirror = new TGraph;
             rep(bin,nbin){
                 gcold -> SetPoint(bin,bin,Cold[bin]);
+                dgcold -> SetPoint(bin,bin,(Cold[bin]-Cold[bin-1])/Cold[bin]);
+                dgmirror -> SetPoint(bin,bin,(Mirror[bin]-Mirror[bin-1])/Mirror[bin]);
                 ghot -> SetPoint(bin,bin,Hot[bin]);
                 gmirror -> SetPoint(bin,bin,Mirror[bin]);
                 ddgcold -> SetPoint(bin,bin,ddcold[bin]);
                 ddghot -> SetPoint(bin,bin,ddhot[bin]);
                 ddgmirror -> SetPoint(bin,bin,ddmirror[bin]);
+                if(bin>12439 && bin<12470){
+                    cout << ddcold[bin] << " : " << bin << endl;
+                }
             }
-
             //怪しいチャンネルがどこで反応しているのか、何点反応しているのかなどを確かめる
             //cout << ddcold[falchan-1024] << " " << ddhot[falchan-1024] << endl;
             st.Graph(gcold,axraw);
             st.Graph(gmirror,axraw);
             st.Graph(ddgcold,axdd);
             st.Graph(ddgmirror,axdd);
+            st.Graph(dgcold,axd);
+            st.Graph(dgmirror,axd);
+            dgcold -> SetLineColor(kBlue);
+            dgmirror -> SetLineColor(kGreen);
             //ddgcold -> SetLineColor(gColor[j]);
             gmirror -> SetLineColor(kGreen);
             ddgcold -> SetLineColor(kBlue);
             ddgmirror -> SetLineColor(kGreen);
             ghot -> SetLineColor(kRed);
-            gcold -> Draw("AL");
+            ddgmirror -> Draw("AL");
+            ddgcold -> Draw("AL");
             //ddgcold -> Draw("AL");
-            //ghot -> Draw("L");
+            //ghot -> Draw("L");*/
             
         }
-        
-        prep(bin,sb+11,fb){
-            if(!freqmap[bin]){
-                //cout << bin << endl;
-                x++;
-            }
-        }
-        cout << "x : " << x << endl;
-    
     }
     
-    /*cout << "before : " << mnomi << endl;
-    //xfft4パターン,lsbo,usbiは昇順、lsbi,usboは降順
-    ofstream writing_file;
-    prep(xfft,0,4){
-        //cout << xfftname[xfft] << " : ";
-        int outnum = 0;
-        prep(bin,sb,fb){
-            if(maskchannel[bin][xfft]){
-                //cout << bin  << " ," ;
-                outnum++;
-            }
-        }
-        //探索範囲をどこからどこまでに設定するべきかは非常に悩ましい問題である、がとりあえず2GHz基準で
-        /*prep(bin,sb,fb){
-            if(xfft%2==1){
-                if(maskchannel[bin][xfft] && maskchannel[bin-512][xfft] && maskchannel[bin+512][xfft] && maskchannel[bin+1024][xfft]){
-                    cout << bin << " ";
-                }
-            }
-            else{
-                if(maskchannel[bin][xfft] && maskchannel[bin+512][xfft] && maskchannel[bin-512][xfft] && maskchannel[bin-1024][xfft]){
-                    cout << bin << " ";
-                }
-            }
-        }
-        //cout << outnum << endl;
-    }
     /*int mnomi2 = 0;
     //フィルタリングした上で001のパターンがカウントされていないかどうかを確認する
     prep(i,2,3){
@@ -540,5 +520,14 @@ void basic_spec2(){
             }
         }
     }*/
+    TF1* corf = new TF1("corf","x",0.0003,0.0004);
+    TF1* corfu = new TF1("corfu","1.03*x",0.0003,0.0004);
+    TF1* corfl = new TF1("corfl","0.97*x",0.0003,0.0004);
+    axrange axsig = {0.00033,0.00037,0.00033,0.00037,0,1,"cold-hot;Csigma;Hsigma"};
+    st.Graph(cmgsigma,axsig);
+    cmgsigma -> Draw("AP");
+    corf -> Draw("same");
+    corfu -> Draw("same");
+    corfl -> Draw("same");
     //cout << "after : " <<mnomi2 << endl;
 }

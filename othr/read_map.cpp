@@ -7,13 +7,32 @@
 #include "../headers/mask_map.h"
 #include "../headers/setting.h"
 using namespace std;
+vector<int> lsbo = {1,3,5,13,15,17};
+vector<int> lsbi = {2,4,6,14,16,18};
+vector<int> usbi = {7,9,11,19,21,23};
+vector<int> usbo = {8,10,12,20,22,24};
 #define rep(i,n) for(int i=0;i<n;i++)
 #define prep(i,s,f) for(int i=s;i<f;i++)
 const int nbin=32767;
 const int sb = 2585;//切り出してくるビンの最初
 const int cb = 15725;//探索範囲の中点,ここを境にデータの振幅が変わっているデータがある
 const int fb = 28865;//切り出してくるビンの最後
-vector<string> XFFT = {"lsbo","lsbi","usbi","usbo"};
+vector<string> sxfft = {"lsbo","lsbi","usbi","usbo"};
+int XFFT(int i){
+    int xfft;
+    auto result = find(lsbo.begin(),lsbo.end(),i);
+    if(result==lsbo.end()){
+        result = find(lsbi.begin(),lsbi.end(),i);
+        if(result==lsbi.end()){
+            result = find(usbo.begin(),usbo.end(),i);
+            if(result==usbo.end())xfft = 2;
+            else xfft = 3;
+        }
+        else xfft = 1;
+    }
+    else xfft = 0;
+    return xfft;
+}
 void read_map(){
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.14,0.11,0.2,0.1);
@@ -23,6 +42,9 @@ void read_map(){
     st.color = kRed;
     Mask ms;
     vector<vector<int>> vec = ms.maskmap;
+    prep(i,1,25){
+        cout << XFFT(i) << endl;
+    }
     bool hantei[4][nbin];//ここを前後15ビンまでマークするようにする
     rep(xfft,4){
         rep(bin,nbin)hantei[xfft][bin] = false;
@@ -34,17 +56,17 @@ void read_map(){
     }
     int x = 0;
     rep(bin,nbin){
-        if(hantei[1][bin] && hantei[1][bin+512] && hantei[1][bin-512] && hantei[1][bin-1024]){
+        if(hantei[0][bin] && hantei[0][bin-512] && hantei[0][bin+512] && hantei[0][bin+1024]){
             cout << bin << endl;
             x++;
         }
     }
     cout << "x : " << x << endl;
-    /*TGraph* graph1 = new TGraph;
+    TGraph* graph1 = new TGraph;
     TGraph* graph2 = new TGraph;
     TGraph* graph3 = new TGraph;
     TGraph* graph4 = new TGraph;
-    axrange ax = {0,nbin,-1,1,0,1,"LSBO;Bin;Judge"};
+    axrange ax = {0,nbin,-1,1,0,1,"USBI;Bin;Judge"};
     st.Graph(graph1,ax);
     st.Graph(graph2,ax);
     st.Graph(graph3,ax);
@@ -65,5 +87,5 @@ void read_map(){
     graph1 -> Draw("AP");
     graph2 -> Draw("P");
     graph3 -> Draw("P");
-    graph4 -> Draw("P");*/
+    graph4 -> Draw("P");
 }
