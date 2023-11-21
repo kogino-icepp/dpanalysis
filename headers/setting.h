@@ -107,6 +107,20 @@ public:
         double xmax = hist -> GetMaximum();
         double xmin = hist -> GetMinimum();
     }
+    void Hist(TH1* hist){
+        hist -> GetXaxis() -> SetLabelSize(0.07);
+        hist -> GetXaxis() -> SetTitleOffset(0.8);
+        hist -> GetXaxis() -> SetTitleSize(0.08);
+        hist -> GetXaxis() -> SetTitleFont(42);
+        hist -> GetXaxis() -> SetNdivisions(505);
+        hist -> GetYaxis() -> SetTitleOffset(0.85);
+        hist -> GetYaxis() -> SetLabelSize(0.07);
+        hist -> GetYaxis() -> SetTitleSize(0.08);
+        hist -> GetYaxis() -> SetNdivisions(505);
+        hist -> GetYaxis() -> SetTitleFont(42);
+        double xmax = hist -> GetMaximum();
+        double xmin = hist -> GetMinimum();
+    }
     void Graph2D(TGraph2D* graph,struct axrange ax){
         graph -> SetMaximum(ax.zmax);
         graph -> SetMinimum(ax.zmin);

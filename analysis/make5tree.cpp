@@ -211,6 +211,7 @@ void make5tree(){
                     tree->SetBranchAddress("body",&body);
                     tree->GetEntry(0);
                     if(shift==sbin.at(j)){
+                        
                         //cout << file_name << endl;
                         if(num==1 && body==0){
                             for(int bin=0;bin<nbin;bin++){
@@ -285,7 +286,7 @@ void make5tree(){
                 
             }*/
             //後々のためにフィットで得られた諸データをrootファイルで保存したい
-            filesystem::current_path(saveexe);
+            /*filesystem::current_path(saveexe);
             string tfname = "allbinbase"+to_string(i)+"_"+to_string(j)+".root";
             TFile *fout = new TFile(tfname.c_str(),"recreate");
             
@@ -341,7 +342,7 @@ void make5tree(){
                 /*st.GraphErrors(spgraphk,axtest);
                 spgraphk -> Draw("AP");
                 
-                f1 -> Draw("same");*/
+                f1 -> Draw("same");
                 //ft.all_fit(spgraph,f2,5,res2);
                 aF = f1 -> GetParameter(0);
                 bF = f1 -> GetParameter(1);
@@ -410,7 +411,7 @@ void make5tree(){
             }
             //tree2->SaveAs(tfname2.c_str());
             fout -> Write();
-            fout -> Close();
+            fout -> Close();*/
             
             
             

@@ -45,6 +45,30 @@ const double kb=1.38*pow(10,-23);
 const double df=88.5*pow(10,3);
 const double Tc=76;
 const double Th=297;
+double v_conv(double f,double f0){
+    double rtn=c*sqrt(1-((f0/f)*(f0/f)));
+    return rtn;
+}
+double F_nu(double f,double f0){
+    double rtn;
+    double v=v_conv(f,f0);
+    double p_kata=(v+vE)/v0;
+    double m_kata=(v-vE)/v0;
+    rtn = (vc/(2*sqrt(M_PI)*vE))*(exp(-(p_kata*p_kata))-exp(-(m_kata*m_kata)));
+    rtn += 0.5*(erf(p_kata)+erf(m_kata));
+    //rtn *= (c*f0*f0)/(f*f*f*sqrt(1-(f0/f)*(f0/f)));
+    return rtn;
+}
+double F_sig2(double f,double f0,double P,double r){
+    if(f+dnu*r<=f0)return 0;
+    else if(f+r*dNu>f0 && f-(1-r)*dNu<=f0){
+        return P*(F_nu(f+r*dNu,f0)-F_nu(f0,f0));
+    }
+    else if(f-dnu*(1-r)>f0){
+        return P*(F_nu(f+r*dNu,f0)-F_nu(f-(1-r)*dNu,f0));
+    }
+    else return 0;
+}
 string basicdir = "/Users/oginokyousuke/data/basic_data/";
 bool toge_hantei(vector<bool>ctoge, vector<bool>htoge, int bin, queue<int>& que){
     prep(i,bin,bin+dbin){
@@ -217,10 +241,13 @@ void basic_spec2(){
     rep(xfft,4)rep(bin,nbin)maskchannel[xfft][bin] = false;
     //最初に24セットでmaskchannel作る、それでもう一回for(i)を見たい帯域で回す
     TH1D* mexcess = new TH1D("mexcess","mexcess;Sigma;Count",100,5,20);
-    TGraph* cmgsigma = new TGraph;//ここにミラーとcoldのσを
+    TGraph* cmgsigma = new TGraph;//ミラーでposだった点のcoldでの値がどうなのか見る
     int cmnum = 0;
     //要件定義：map作り直し、きちんと切れているか確認すること
-    for(int i=1;i<25;i++){
+    for(int i=1;i<2;i++){
+        double fmin = 213.5+i*2;
+        double fmax = 216.5+i*2;
+        cout << i << " : " << fmin+0.5 << " ~ " << fmax-0.5 << endl;
         bool freqmap[nbin];
         int x = 0;
         rep(bin,nbin)freqmap[bin] = false;//一回でも探索したらtrueに変更する、最終的にfalseがあるかを計上？
@@ -242,8 +269,8 @@ void basic_spec2(){
                 Mtoge[j][k] = false;
             }
         }
-        for(int j=0;j<4;j++){
-            
+        for(int j=3;j<4;j++){
+            cout << j << endl;
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -313,87 +340,257 @@ void basic_spec2(){
                 Hot[bin] = (hot1[bin] + hot2[bin])/2;
                 Mirror[bin] = (mirror1[bin] + mirror2[bin])/2;
             }
-            
-            axrange axdd = {12439,12469,-10,10,0,1,"ddcold;bin;sigma"};
-            axrange axraw = {12439,12469,0,pow(10,16),0,1,"Cold;Bin;Cold[a.u]"};
+            int outbin = sb;
+            if(xfft%2==1)outbin += sbin[j];
+            else outbin -= sbin[j];
+            //cout << Freq1[outbin] << " ";
+            //テスト関数(デルタ関数とシグナル)を用意してヒストグラム化,FFTで変換してその物性を確かめる
+            axrange axdd = {fmin,fmax,-10,10,0,1,"ddmirror;bin;sigma"};
+            axrange axraw = {fmin,fmax,0,pow(10,16),0,1,"Cold;Bin;Cold[a.u]"};
             axrange axd = {12439,12469,0,pow(10,16),0,1,"dcold;Bin;dcold[a.u]"};
             double Csigma,Hsigma,Msigma;
             double ddcold[nbin],ddhot[nbin],ddmirror[nbin];
             toge_scan2(Ctoge[j],Cold,Csigma,ddcold);
             toge_scan2(Htoge[j],Hot,Hsigma,ddhot);
             toge_scan2(Mtoge[j],Mirror,Msigma,ddmirror);
-            cmgsigma -> SetPoint(cmnum,Csigma,Hsigma);
-            cmnum++;
-            //ここで作ったboolの配列を30binごとに区切って区間の中に棘を入れないようにする→何データ死ぬかを確認
-            /*prep(bin,sb,fb){
-                bool chantei = false;
-                bool hhantei = false;
-                bool mhantei = false;
-                bool maskhantei = false;
-                if(Ctoge[j][bin] || Htoge[j][bin])maskchannel[xfft][bin] = true;
-                rep(ad,dbin){
-                    if(hantei[xfft][bin+ad]){
-                        maskhantei = true;
-                        break;
+            prep(bin,sb,fb){
+                if(abs(ddmirror[bin])>5){
+                    bool rhantei = false;
+                    prep(ad,-15,15){
+                        if(hantei[xfft][bin+ad]){
+                            rhantei = true;
+                            break;
+                        }
                     }
-                    if(Ctoge[j][bin+ad])chantei = true;
-                    if(Htoge[j][bin+ad])hhantei = true;
-                    if(Mtoge[j][bin+ad])mhantei = true;
-                }
-                if(maskhantei)continue;
-                if(chantei || hhantei)togenum++;
-                else if(!chantei && hhantei)hnomi++;
-                else if(!chantei && !hhantei && mhantei){
-                    //cout << j << " " << bin << endl;
-                    mnomi++;
                 }
             }
             
-            TGraph* gcold = new TGraph;
+            double jfmin = min(Freq1[0],Freq1[nbin-1]);
+            double jfmax = max(Freq1[0],Freq1[nbin-1]);
+            TH1* thist = new TH1D("thist",";Freq[GHz];Spec",nbin,jfmin,jfmax);
+            TH1* onhist = new TH1D("onhist",";Freq[GHz];Spec",nbin,0,nbin);
+            TH1* delhist = new TH1D("delhist","test;Freq[GHz];Spec",nbin,jfmin,jfmax);
+            TH1* fhist = new TH1D("fhist","MAG;1/Freq[ns];",nbin,0,nbin/2.5);//棘抜く前のFFT
+            TH1* tfhist = new TH1D("tfhist","PH;1/Freq[ns];",nbin,0,nbin/2.5);//棘抜いた後のFFT
+            TH1* sighist = new TH1D("sighist","sig;Freq[GHz];Spec",30,Freq1[0],Freq1[30]);
+            TF1* hamf = new TF1("hamf","");
+            TH1* sintest = new TH1D("sintest","test;test;test",30,0,30);
+            TH1* sinfft = new TH1D("sinfft","test;test;test",15,0,15);
+            TH1* sigtest = nullptr;
+            
+            rep(bin,30)sintest -> SetBinContent(bin,TMath::Cos(2*TMath::Pi()*bin/5));
+            st.Hist(sintest);
+            sintest -> Draw();
+            sinfft = sintest -> FFT(sinfft,"MAG");
+            st.Hist(sinfft);
+            sinfft -> Draw();
+            //TVirtualFFT::SetTransform(nullptr);
+            /*TH1* parhist = new TH1D("parhsit","partition;Freq[GHz];Spec",30,Freq1[2940],Freq1[2970]);
+            rep(k,30)parhist -> SetBinContent(k,Cold[25940+k]/pow(10,13));
+            st.Hist(parhist);
+            parhist -> Draw();
+            fhist = parhist -> FFT(fhist,"MAG");
+            st.Hist(fhist);*/
+            //fhist -> Draw();
+            //30binの
+            /*rep(bin,30){
+                thist -> SetBinContent(bin,Cold[bin]/pow(10,13));
+                sighist -> SetBinContent(bin,F_sig2(Freq1[bin],Freq1[1],10,0.5));
+            }
+            st.Hist(sighist);
+            sighist -> Draw();
+            sigtest = sighist -> FFT(sigtest,"MAG");
+            st.Hist(sigtest);
+            sigtest -> Draw();
+
+            //filter作り、カットオフ有無で二通り
+            TH1* filhist = new TH1D("filhist","wiener filter[not cutoff];1/Freq[ns];",nbin,0,nbin/2.5);
+            TH1* filhist2 = new TH1D("filhist2","wiener filter[cutoff];1/Freq[ns];",nbin,0,nbin/2.5);
+            TH1* tfilhist = new TH1D("tfilhist","after filtered[not cutoff];",nbin,0,nbin/2.5);
+            TH1* tfilhist2 = new TH1D("tfilhist2","after filtered[cutoff];",nbin,0,nbin/2.5);
+
+            Double_t *re_full = new Double_t[nbin];//シグナルのFFTデータ
+            Double_t *im_full = new Double_t[nbin];//上の虚部
+            Double_t *tre_full = new Double_t[nbin];//元データのFFTデータ
+            Double_t *tim_full = new Double_t[nbin];//上の虚部
+            //シグナルと生データをそれぞれFFTにかける
+            fhist = thist -> FFT(fhist,"MAG");
+            TVirtualFFT *fft = TVirtualFFT::GetCurrentTransform();//直近でFFTしたデータのあれこれを引っ張り出すポインタ
+            fft -> GetPointsComplex(re_full,im_full);
+            double cre = re_full[100];
+            double cim = im_full[100];
+            tfhist = thist -> FFT(tfhist,"MAG");
+            TVirtualFFT *tfft = TVirtualFFT::GetCurrentTransform();
+            tfft -> GetPointsComplex(tre_full,tim_full);
+        
+            rep(bin,nbin){
+                double deno = (re_full[bin]*re_full[bin]+im_full[bin]*im_full[bin]);
+                double deno2 = (re_full[bin]*re_full[bin]+im_full[bin]*im_full[bin])+(cre*cre+cim*cim);
+                double re = re_full[bin]/deno;
+                double im = -im_full[bin]/deno;
+                double re2 = re_full[bin]/deno2;
+                double im2 = -im_full[bin]/deno2;
+                double tre = tre_full[bin]*re-tim_full[bin]*im;
+                double tim = tre_full[bin]*im+tim_full[bin]*re;
+                double tre2 = tre_full[bin]*re2-tim_full[bin]*im2;
+                double tim2 = tre_full[bin]*im2+tim_full[bin]*re2;
+                tfilhist -> SetBinContent(bin,sqrt(tre*tre+tim*tim));
+                tfilhist2 -> SetBinContent(bin,sqrt(tre2*tre2+tim2*tim2));
+                filhist -> SetBinContent(bin,sqrt(re*re+im*im));
+                filhist2 -> SetBinContent(bin,sqrt(re2*re2+im2*im2));
+            }
+            st.Hist(filhist2);
+            filhist2 -> Draw();
+            st.Hist(tfilhist);
+            tfilhist -> Draw();
+
+            /*;//各点のDCとナイキスト周波数を取得
+            st.Hist(fhist);
+            fhist -> Draw();
+            
+            //これを踏まえた時にフィルタがどう機能しているのかを確認する
+            fhist2 = sighist -> FFT(fhist2,"MAG");
+            TVirtualFFT *fft2 = TVirtualFFT::GetCurrentTransform();//直近でFFTしたデータのあれこれを引っ張り出すポインタ
+            fft2 -> GetPointsComplex(mre_full,mim_full);//各点のDCとナイキスト周波数を取得
+            double mcr = mre_full[100];
+            double mci = mim_full[100];
+            TH1* reshist = new TH1D("reshist","res;1/Freq[ns];Spec",nbin,0,nbin/2.5);
+            rep(bin,nbin){
+                double tr = tre_full[bin];
+                double ti = tim_full[bin];
+                double mr = mre_full[bin];
+                double mi = mim_full[bin];
+                double K = (mcr*mcr+mci*mci)+(mr*mr+mi*mi);
+                tre_full[bin] = (tr*mr+ti*mi)/K;
+                tim_full[bin] = (ti*mr-tr*mi)/K;
+                reshist -> SetBinContent(bin,sqrt(tre_full[bin]*tre_full[bin]+tim_full[bin]*tim_full[bin]));
+            }
+            st.Hist(reshist);
+            reshist -> Draw();
+            Int_t Nbin = 32767;
+            // TH1* backhist = new TH1D("backhist","back;Freq[GHz];Spec",nbin,jfmin,jfmax);
+            // TVirtualFFT *fft_back = TVirtualFFT::FFT(1,&Nbin,"C2R M K");
+            // fft_back->SetPointsComplex(tre_full,tim_full);
+            // fft_back -> Transform();
+            // backhist = TH1::TransformHisto(fft_back,backhist,"Re");
+            // st.Hist(backhist);
+            // backhist -> Draw();
+            // 
+            // 
+            // fhist2 = onhist -> FFT(fhist2,"MAG");
+            // TVirtualFFT *fft2 = TVirtualFFT::GetCurrentTransform();
+            // fft2 -> GetPointsComplex(mre_full,mim_full);
+            // rep(bin,nbin){
+            //     double tr = tre_full[bin];
+            //     double ti = tim_full[bin];
+            //     double mr = mre_full[bin];
+            //     double mi = mim_full[bin];
+            //     double deno = mr*mr+mi*mi;
+            //     tre_full[bin] = (tr*mr+ti*mi)/deno;
+            //     tim_full[bin] = (ti*mr-tr*mi)/deno;
+            // }
+            // 
+            // TVirtualFFT *fft_back = TVirtualFFT::FFT(1,&Nbin,"C2R M K");
+            // fft_back->SetPointsComplex(tre_full,tim_full);
+            // fft_back->Transform();
+            // TH1 *hb = new TH1D("hb","back;Freq[GHz];Spec",nbin,jfmin,jfmax);
+            // //Let's look at the output
+            // hb = TH1::TransformHisto(fft_back,hb,"Re");
+            // hb->SetTitle("The backward transform result");
+            // st.Hist(hb);
+            // hb->Draw();
+            
+            /*for(int bin=nbin-1;bin>=nbin;bin++){
+                re_full[bin] = re_full[nbin-1-bin];
+                im_full[bin] = im_full[nbin-1-bin];
+            }
+            Int_t Nbin = 32767;
+            TVirtualFFT *fft_back = TVirtualFFT::FFT(1,&Nbin,"C2R M K");
+            fft_back->SetPointsComplex(re_full,im_full);
+            fft_back->Transform();
+            TH1 *hb = nullptr;
+            //Let's look at the output
+            hb = TH1::TransformHisto(fft_back,hb,"Re");
+            hb->SetTitle("The backward transform result");
+            st.Hist(hb);
+            hb->Draw();
+            */
+            /*TGraph* gcold = new TGraph;
             TGraph* ghot = new TGraph;
             TGraph* gmirror = new TGraph;
+            TGraph* ggain = new TGraph;
+            TGraph* gsys = new TGraph;
             TGraph* ddgcold = new TGraph;
             TGraph* ddghot = new TGraph;
             TGraph* ddgmirror = new TGraph;
             TGraph* dgcold = new TGraph;
             TGraph* dgmirror = new TGraph;
+            double gain,psys;
             rep(bin,nbin){
-                gcold -> SetPoint(bin,bin,Cold[bin]);
+                gcold -> SetPoint(bin,Freq1[bin],Cold[bin]);
                 dgcold -> SetPoint(bin,bin,(Cold[bin]-Cold[bin-1])/Cold[bin]);
                 dgmirror -> SetPoint(bin,bin,(Mirror[bin]-Mirror[bin-1])/Mirror[bin]);
-                ghot -> SetPoint(bin,bin,Hot[bin]);
-                gmirror -> SetPoint(bin,bin,Mirror[bin]);
-                ddgcold -> SetPoint(bin,bin,ddcold[bin]);
+                ghot -> SetPoint(bin,Freq1[bin],Hot[bin]);
+                gmirror -> SetPoint(bin,Freq1[bin],Mirror[bin]);
+                ddgcold -> SetPoint(bin,Freq1[bin],ddcold[bin]);
                 ddghot -> SetPoint(bin,bin,ddhot[bin]);
-                ddgmirror -> SetPoint(bin,bin,ddmirror[bin]);
-                if(bin>12439 && bin<12470){
-                    cout << ddcold[bin] << " : " << bin << endl;
-                }
+                ddgmirror -> SetPoint(bin,Freq1[bin],ddmirror[bin]);
+                gain = (Hot[bin]-Cold[bin])/(2*kb*(Th-Tc)*df);
+                psys = (Cold[bin]/gain)-2*kb*Tc*df;
+                ggain -> SetPoint(bin,Freq1[bin],gain);
+                gsys -> SetPoint(bin,Freq1[bin],psys);
             }
+            //cout << Freq1[18596]  << " : " << Freq1[22258] <<endl; 
             //怪しいチャンネルがどこで反応しているのか、何点反応しているのかなどを確かめる
             //cout << ddcold[falchan-1024] << " " << ddhot[falchan-1024] << endl;
             st.Graph(gcold,axraw);
             st.Graph(gmirror,axraw);
+            st.Graph(ghot,axraw);
             st.Graph(ddgcold,axdd);
             st.Graph(ddgmirror,axdd);
             st.Graph(dgcold,axd);
             st.Graph(dgmirror,axd);
-            dgcold -> SetLineColor(kBlue);
-            dgmirror -> SetLineColor(kGreen);
-            //ddgcold -> SetLineColor(gColor[j]);
-            gmirror -> SetLineColor(kGreen);
-            ddgcold -> SetLineColor(kBlue);
-            ddgmirror -> SetLineColor(kGreen);
+            string ctitle = "Cold"+to_string(i)+"_"+to_string(j)+";Freq[GHz];Cold[a.u]";
+            string htitle = "Hot"+to_string(i)+"_"+to_string(j)+";Freq[GHz];Hot[a.u]";
+            string mtitle = "Mirror"+to_string(i)+"_"+to_string(j)+";Freq[GHz];Mirror[a.u]";
+            
+            //c1 -> SetLogy();
             ghot -> SetLineColor(kRed);
-            ddgmirror -> Draw("AL");
-            ddgcold -> Draw("AL");
-            //ddgcold -> Draw("AL");
+            gcold -> SetLineColor(kBlue);
+            gmirror -> SetLineColor(kGreen);
+            ddgmirror -> SetLineColor(kGreen);
+            //gcold -> SetTitle(ctitle.c_str());
+            gcold -> SetTitle("Spectrum;Freq[GHz];Spectrum[a.u]");
+            ghot -> SetTitle(htitle.c_str());
+            gmirror -> SetTitle(mtitle.c_str());
+            ctitle = "Cold"+to_string(i)+"_"+to_string(j)+".ps";
+            htitle = "Hot"+to_string(i)+"_"+to_string(j)+".ps"; 
+            mtitle = "Mirror"+to_string(i)+"_"+to_string(j)+".ps";
+            gcold -> Draw("AL");
+            ghot -> Draw("L"); 
+            gmirror -> Draw("L");
+            TLegend *legend = new TLegend(0.7, 0.5, 0.85, 0.7);
+            legend->AddEntry(gcold, "Cold", "l");
+            legend->AddEntry(ghot, "Hot", "l");
+            legend->AddEntry(gmirror, "Mirror", "l"); 
+            legend->SetBorderSize(0); // 凡例のボーダーを非表示に
+            //legend->Draw();
+            axrange axg = {fmin,fmax,0,pow(10,31),0,1,"Gain;Freq[GHz];Gain[a.u]"};
+            axrange axsys = {fmin,fmax,0,pow(10,-15),0,1,"Psys;Freq[GHz];Psys[W]"};
+            st.Graph(ggain,axg);
+            st.Graph(gsys,axsys);
+            //ggain -> Draw("AC");
+            //ddgmirror -> Draw("AL");
             //ghot -> Draw("L");*/
             
         }
     }
-    
-    /*int mnomi2 = 0;
+    /*cout << cmnum << endl;
+    axrange axcm = {0,20,0,20,0,1,";Msigma;Csigma"};
+    st.Graph(cmgsigma,axcm);
+    cmgsigma -> Draw("AP");
+
+    int mnomi2 = 0;
     //フィルタリングした上で001のパターンがカウントされていないかどうかを確認する
     prep(i,2,3){
         int xfft = XFFT(i);
@@ -473,18 +670,7 @@ void basic_spec2(){
             axrange axrawh = {2620,2630,0,pow(10,16),0,1,"Hot;Bin;Hot[a.u]"};
             axrange axrawm = {2620,2630,0,pow(10,16),0,1,"Mirror;Bin;Mirror[a.u]"};
             axrange axdd = {2620,2630,-10,10,0,1,"ddmirror;Bin;ddmirror"};
-            TGraph* gcold = new TGraph;
-            TGraph* ghot = new TGraph;
-            TGraph* gmirror = new TGraph;
-            double Cold[nbin],Hot[nbin],Mirror[nbin];
-            rep(bin,nbin){
-                Cold[bin] = (cold1[bin] + cold2[bin])/2;
-                Hot[bin] = (hot1[bin] + hot2[bin])/2;
-                Mirror[bin] = (mirror1[bin] + mirror2[bin])/2;
-                gcold -> SetPoint(bin,bin,Cold[bin]);
-                ghot -> SetPoint(bin,bin,Hot[bin]);
-                gmirror -> SetPoint(bin,bin,Mirror[bin]);
-            }
+            
             st.Graph(gcold,axrawc);
             st.Graph(ghot,axrawh);
             st.Graph(gmirror,axrawm);
@@ -520,7 +706,7 @@ void basic_spec2(){
             }
         }
     }*/
-    TF1* corf = new TF1("corf","x",0.0003,0.0004);
+    /*TF1* corf = new TF1("corf","x",0.0003,0.0004);
     TF1* corfu = new TF1("corfu","1.03*x",0.0003,0.0004);
     TF1* corfl = new TF1("corfl","0.97*x",0.0003,0.0004);
     axrange axsig = {0.00033,0.00037,0.00033,0.00037,0,1,"cold-hot;Csigma;Hsigma"};
@@ -528,6 +714,6 @@ void basic_spec2(){
     cmgsigma -> Draw("AP");
     corf -> Draw("same");
     corfu -> Draw("same");
-    corfl -> Draw("same");
+    corfl -> Draw("same");*/
     //cout << "after : " <<mnomi2 << endl;
 }
