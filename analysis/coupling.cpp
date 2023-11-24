@@ -2,7 +2,7 @@
 #include "../headers/fitter.h"
 using namespace std;
 # define PI 3.14159265359
-double c = 3*pow(10,11);
+double c = 3*pow(10,11);//[mm/s]
 double w0 = 2.67;//[mm]
 
 double etaz(){
@@ -20,6 +20,17 @@ double eta2(double R){
 }
 double dBmtomW(double dbm){
     return pow(10,(dbm)/10);
+}
+//dzによるカップリング、ウエストサイズが違う場合を考えるときは補正かける
+double etaz(double dz,double f){
+    double lambda = c/(f*pow(10,9));//[mm]になるように調節(できているはず)
+    return 4/(4+(lambda*dz/(PI*w0*w0))*(lambda*dz/(PI*w0*w0)));
+}
+//dzだけでなくdrも考慮した時のcoupling,上と同じくウエストサイズまでちゃんと考えるときは補正かける
+double etar(double dz,double dr,double f){
+    double lambda = c/(f*pow(10,9));
+    double delta = sqrt(((4*pow(w0,4))+(lambda*dz/PI)*(lambda*dz/PI))/(2*w0*w0));
+    return etaz(dz,f)*exp(-2*(dr/delta)*(dr/delta));
 }
 double xdbm[7] = {-11.55,-11.25,-10.66,-10.12,-10.67,-11.42,-11.63};
 double xpower[20] = {77.8,79.4,82.4,87.5,94.8,104.5,111.4,116.5,119.0,120.1,118.1,112.1,103.8,95.1,88.0,83.4,80.9,78.9,78.1,77.3};
@@ -50,27 +61,19 @@ void coupling(){
     glinear -> SetPointError(1,1,1.02329*log(10)*0.1/10);
     glinear -> SetPointError(2,1,1.78258*log(10)*0.1/10);
     axrange axl = {0,300,0,2,0,1,";Temperature[K];Power[uW]"};
+    TH2D* euceta = new TH2D("euceta","#eta (#Deltaz,#Delta r);#Delta z[mm];#Delta r[mm]",20,0,0.1,20,0,0.1);
+    rep(i,21){
+        rep(j,21)euceta -> SetBinContent(i,j,etar(i/200.0,j/200.0,240));
+    }
+    st.Hist(euceta);
+    euceta -> SetStats(0);
+    euceta -> SetMinimum(0.997);
+    euceta -> SetMaximum(1);
+    euceta -> Draw("colz");
     st.GraphErrors(glinear,axl);
     glinear -> Draw("AP");
-    TF1* lf = new TF1("lf","[0]+[1]*x");
-    glinear -> Fit(lf);
-    // rep(bin,21){
-    //     //gxaline -> SetPoint(bin,xpos[bin],xpower[bin]);
-    //     //gxaline -> SetPointError(bin,1,xpower[bin]*log(10)/20);
-    //     gyaline -> SetPoint(bin,ypos[bin],ypower[bin]);
-    //     gyaline -> SetPointError(bin,1,ypower[bin]*log(10)/20);
-    // }
-    // axrange ax = {0,900,0,200,0,1,";pos[mm];Power[uW]"};
-    // st.GraphErrors(gxaline,ax);
-    // st.GraphErrors(gyaline,ax);
-    // //gxaline -> Draw("AP");
-    // gyaline -> Draw("AP");
-    // TF1* fgaus = new TF1("fgaus","[0]*exp(-(x-[1])*(x-[1])/(2*[2]*[2]))+[3]");
-    // fgaus -> SetParameter(3,0.05);
-    // fgaus -> SetParameter(0,0.01);
-    // fgaus -> SetParameter(1,500);
-    // fgaus -> SetParameter(2,100);
+    TF1* f1 = new TF1("f1","[0]+[1]*x",0,300);
+    glinear -> Fit(f1);
+    //各軸からのずれによってどの程度カップリングロスがあるのかをTH2Dで表示してみる
     
-    // gyaline -> Fit(fgaus);
-    //各パラメータを変化させたときの理想的なカップリングロスを示してみる(二次元グラフとかがいいのかな)
 }

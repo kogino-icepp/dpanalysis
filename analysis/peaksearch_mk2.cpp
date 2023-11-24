@@ -535,14 +535,29 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         //フィットがある程度収束するまでこれ続ける
         double fitres = 10000000;
         double fitres2 = 10000001;
+        double fiterr = 500000;//不本意だが
         int count = 0;
-        while(abs(fitres-fitres2)>0.0000001){
+        //案1: エラーがある程度小さくなるまで忖度し続ける-> そもそもlimit計算の段階で謎のエラーが出力されているのはなぜ?
+        rep(ite,10000){
+            fitres2 = fitres;
+            fitgraph -> Fit(peakquad,"MQ","",sfreq,ffreq);
+            fitres = peakquad -> GetParameter(4);
+            fiterr = peakquad -> GetParError(4);
+            if(abs(fitres-fitres2)<0.0000001){
+                if(fiterr<1){
+                    //cout << "ite: " << ite << endl;
+                    break;}
+                else continue;
+            }
+        }
+        /*while(abs(fitres-fitres2)>0.0000001){
             if(count==10000)break;
             fitres2 = fitres;
             fitgraph -> Fit(peakquad,"MQ","",sfreq,ffreq);
             fitres = peakquad -> GetParameter(4);
+            fiterr = peakquad -> GetParError(4);
             count++;
-        }
+        }*/
         arcount[cstart] = count;
         cstart++;
         double pout = peakquad -> GetParameter(4);
@@ -566,7 +581,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         }
         //deltaP[i*2+j+(2-p)][bin+11] = pout;*/
     }
-    rep(bin,cstart)cout << "count: "<< arcount[bin] << endl;
+    //rep(bin,cstart)cout << "count: "<< arcount[bin] << endl;
     TF1* fgaus = new TF1("fgaus","gaus",-1,1);
     whitehist -> Fit(fgaus);
     double DeltaP = fgaus -> GetParameter("Sigma");
@@ -587,6 +602,7 @@ void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
     int gbin = 0;
     //deltaPの平均化
     //周波数をどう引っ張ってくるかが問題、割合どうせ分かってるもんなあ
+    //TH1* delhist = nullptr;
     prep(bin,sb,fb){
         //探索されていない場合をパスしてそれ以外を足し上げる(何回足しあげたかはきちんとカウント)
         int num = 0;
@@ -603,6 +619,7 @@ void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
         }
         dlim /= num;
         vardeltaP /= num;
+        
         if(num>0){
             //横軸周波数◯ →　縦軸を[K]からχに変換したい
             double freq;
@@ -613,14 +630,16 @@ void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
             double chilim;
             if(dlim>0)chilim = PtoChi((dlim+1.96*vardeltaP)*2*kb*df);
             else chilim = PtoChi(1.96*vardeltaP*2*kb*df);
-            if(chilim<pow(10,-11)){
+            if(chilim>6*pow(10,-11)){
                 cout << chilim << " : " << bin << " : " << num <<  endl;
                 cout << "dlim: " << dlim << " && vardeltaP: " << vardeltaP << endl;
+                //delhist -> Fill(vardeltaP);
             }
             glimit -> SetPoint(gbin,freq,chilim);
             gbin++;
         }
     }
+    //cout << "fit num: " << 1750 << " ~ "  << 2000<< endl;
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.14,0.11,0.2,0.1);
     double fmin = 213.5+i*2;
@@ -630,6 +649,7 @@ void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
     glimit -> SetLineColor(kBlue);
     c1 -> SetLogy();
     glimit -> Draw("AL");
+    
     //横軸の周波数だけなんとか引っ張れるかどうか
 }
 //これがメイン関数
@@ -648,7 +668,7 @@ void peaksearch_mk2(){
     double testlist[8][nbin];
     
     rep(i,8)rep(j,nbin)testlist[i][j] = DINF;
-    for(int fn=5;fn<6;fn++){
+    for(int fn=11;fn<12;fn++){
         for(int j=0;j<4;j++){
             prep(p,1,3){
                 //ファイル読み出し
@@ -686,9 +706,9 @@ void peaksearch_mk2(){
                 //c1 -> SetMargin(0.14,0.11,0.2,0.1);
                 //c1 -> SetLogy();*/
                 GetDPfit(fn,j,p,testlist[j*2+p-1],deltaP[j*2+p-1],chihist,sighist);
-                st.Hist(sighist);
-                c1 -> SetLogy();
-                sighist -> Draw();
+                //st.Hist(sighist);
+                //c1 -> SetLogy();
+                //sighist -> Draw();
                 /*normhist -> Fit("gaus");
                 filesystem::current_path(whitedir);
                 string fgausname = "testgaus"+to_string(fn)+"_"+to_string(j)+"_"+to_string(p)+".ps";

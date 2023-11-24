@@ -543,7 +543,7 @@ class Fitter{
                 exit(1);
             }
             if(resx>chi2/ndf){
-                cout << chi2 << " " << ndf << endl;
+                //cout << chi2 << " " << ndf << endl;
                 resx = chi2/ndf;
                 rep(j,selnum)minpara[j]=f->GetParameter(j);
             }

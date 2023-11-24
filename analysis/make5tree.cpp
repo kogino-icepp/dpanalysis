@@ -190,7 +190,7 @@ void make5tree(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=0;j<1;j++){
+        for(int j=0;j<4;j++){
             cout << j << endl;
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
@@ -286,7 +286,7 @@ void make5tree(){
                 
             }*/
             //後々のためにフィットで得られた諸データをrootファイルで保存したい
-            /*filesystem::current_path(saveexe);
+            filesystem::current_path(saveexe);
             string tfname = "allbinbase"+to_string(i)+"_"+to_string(j)+".root";
             TFile *fout = new TFile(tfname.c_str(),"recreate");
             
@@ -302,7 +302,7 @@ void make5tree(){
             tree1 -> Branch("bin",&binF,"bin/I");
             tree1 -> Branch("freq",&freqF,"freq/D");
             for(int bin=sb;bin<fb;bin++){
-                cout << bin << " : 1" << endl; 
+                //cout << bin << " : 1" << endl; 
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
                     if(c_toge1[j][k] || h_toge1[j][k]){
@@ -339,8 +339,8 @@ void make5tree(){
                 ft.allfit2(spgraphk,f1,5,res1);
                 //ft.exfit(spgraph,f2,res2);
                 //cout << res1 << " : " << res2 << endl;
-                /*st.GraphErrors(spgraphk,axtest);
-                spgraphk -> Draw("AP");
+                //st.GraphErrors(spgraphk,axtest);
+                //spgraphk -> Draw("AP");
                 
                 f1 -> Draw("same");
                 //ft.all_fit(spgraph,f2,5,res2);
@@ -367,7 +367,7 @@ void make5tree(){
             tree2 -> Branch("bin",&binF2,"bin/I");
             tree2 -> Branch("freq",&freqF2,"freq/D");
             for(int bin=sb;bin<fb;bin++){
-                cout << bin << " : 2" << endl; 
+                //cout << bin << " : 2" << endl; 
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
                     if(c_toge2[j][k] || h_toge2[j][k]){
@@ -411,7 +411,7 @@ void make5tree(){
             }
             //tree2->SaveAs(tfname2.c_str());
             fout -> Write();
-            fout -> Close();*/
+            fout -> Close();
             
             
             
