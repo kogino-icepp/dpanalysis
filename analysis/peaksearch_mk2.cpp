@@ -82,6 +82,15 @@ double F_sig2(double f,double f0,double P,double r){
     }
     else return 0;
 }
+/*double F_sig_delta(double f,double f0,double P,double r,double delF){
+    if(f-r*dNu-delF<=0){
+        return ;
+    }
+    else if(f-r*dNu-delF>0){
+        return 0;
+    }
+
+}*/
 double CoupConst2(double p,double dp){
     if(p<0)return 2*1.3458*4.5*pow(10,-14)*sqrt(dp*1.96*pow(10,23))*sqrt(1/Aeff);
     else return 2*1.3458*4.5*pow(10,-14)*sqrt((dp*1.96+p)*pow(10,23))*sqrt(1/Aeff);
@@ -453,6 +462,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
     int index = 0;
     int arcount[nbin];
     int cstart = 0;
+    double poutlist[nbin];
     TH1D* whitehist = new TH1D("whitehist","P_{fit};P_fit[K*Hz];Count",100,-1,1);
     for(int bin=sb;bin<fb;bin++){
         if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF){
@@ -538,9 +548,13 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         double fiterr = 500000;//不本意だが
         int count = 0;
         //案1: エラーがある程度小さくなるまで忖度し続ける-> そもそもlimit計算の段階で謎のエラーが出力されているのはなぜ?
-        rep(ite,10000){
+        rep(ite,100000){
             fitres2 = fitres;
             fitgraph -> Fit(peakquad,"MQ","",sfreq,ffreq);
+            /*if(result.Get() != nullptr && result->IsValid()){
+                cout << "sucess!" << endl;
+            }
+            else cout << "Fail" << endl;*/
             fitres = peakquad -> GetParameter(4);
             fiterr = peakquad -> GetParError(4);
             if(abs(fitres-fitres2)<0.0000001){
@@ -549,6 +563,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
                     break;}
                 else continue;
             }
+            //cout << "ite " << ite << endl;
         }
         /*while(abs(fitres-fitres2)>0.0000001){
             if(count==10000)break;
@@ -569,9 +584,11 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         deltaP[bin] = dpout;
         double chi = peakquad -> GetChisquare();
         int ndf = peakquad -> GetNDF();
-        hist2 -> Fill(sigma);
         hist -> Fill(chi/ndf);
         whitehist -> Fill(pout);
+        poutlist[index] = pout;
+        index++;
+        //cout << pout << " " << dpout << endl;
         //hist -> Fill(pout/0.242115);
         //if(vpchi[bin]<3)hist2 -> Fill(pout/0.242115);
         /*if(abs(pout/0.242115)>5){
@@ -581,10 +598,13 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         }
         //deltaP[i*2+j+(2-p)][bin+11] = pout;*/
     }
-    //rep(bin,cstart)cout << "count: "<< arcount[bin] << endl;
     TF1* fgaus = new TF1("fgaus","gaus",-1,1);
     whitehist -> Fit(fgaus);
     double DeltaP = fgaus -> GetParameter("Sigma");
+    rep(bin,index)hist2 -> Fill(poutlist[bin]/DeltaP);
+    
+    //rep(bin,cstart)cout << "count: "<< arcount[bin] << endl;
+    
     //cout << "DeltaP : " << DeltaP << endl;
     //将来的にはピークサーチした後の点を統計取ってlimitつけるようにする、きっとできる(vector<double>かdouble ??[]に格納しておけば良いはず)
 }
@@ -649,7 +669,9 @@ void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
     glimit -> SetLineColor(kBlue);
     c1 -> SetLogy();
     glimit -> Draw("AL");
-    
+    filesystem::current_path(saveexe);
+    string fname = "limit" + to_string(i) +".ps";
+    c1 -> SaveAs(fname.c_str());
     //横軸の周波数だけなんとか引っ張れるかどうか
 }
 //これがメイン関数
@@ -668,7 +690,7 @@ void peaksearch_mk2(){
     double testlist[8][nbin];
     
     rep(i,8)rep(j,nbin)testlist[i][j] = DINF;
-    for(int fn=11;fn<12;fn++){
+    for(int fn=1;fn<14;fn++){
         for(int j=0;j<4;j++){
             prep(p,1,3){
                 //ファイル読み出し
@@ -705,13 +727,14 @@ void peaksearch_mk2(){
                 //TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
                 //c1 -> SetMargin(0.14,0.11,0.2,0.1);
                 //c1 -> SetLogy();*/
-                GetDPfit(fn,j,p,testlist[j*2+p-1],deltaP[j*2+p-1],chihist,sighist);
-                //st.Hist(sighist);
-                //c1 -> SetLogy();
-                //sighist -> Draw();
-                /*normhist -> Fit("gaus");
+                GetDPfit(fn,j,p,testlist[j*2+p-1],deltaP[j*2+p-1],chihist,normhist);
+                st.Hist(normhist);
+                c1 -> SetLogy();
+                sighist -> Draw();
+                normhist -> Fit("gaus");
                 filesystem::current_path(whitedir);
                 string fgausname = "testgaus"+to_string(fn)+"_"+to_string(j)+"_"+to_string(p)+".ps";
+                string fchiname = "testchi"+to_string(fn)+"_"+to_string(j)+"_"+to_string(p)+".ps";
                 c1 -> SaveAs(fgausname.c_str());
                 st.Hist(chihist);
                 chihist -> Draw();
@@ -720,7 +743,7 @@ void peaksearch_mk2(){
                 chifit -> FixParameter(0,allnum);
                 chifit -> FixParameter(1,1.0/26);
                 chifit -> Draw("same");
-                //c1 -> SaveAs("testchi.ps");
+                c1 -> SaveAs(fchiname.c_str());
                 //normhist -> Fit("gaus");
                 
                 //ここでファイル保存*/

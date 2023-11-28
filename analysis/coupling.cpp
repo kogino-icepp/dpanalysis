@@ -32,6 +32,14 @@ double etar(double dz,double dr,double f){
     double delta = sqrt(((4*pow(w0,4))+(lambda*dz/PI)*(lambda*dz/PI))/(2*w0*w0));
     return etaz(dz,f)*exp(-2*(dr/delta)*(dr/delta));
 }
+//角度がずれた時のカップリングの変化、
+double etaarg(double dz,double dphi,double f){
+    double lambda = c/(f*pow(10,9));
+    double R = 1500;
+    double deno = ((1/(w0*w0))+(1/(w0*w0)));
+    double deltil = sqrt(((deno*deno)+(PI/(lambda*R))*(PI/(lambda*R)))/deno);
+    return etaz(dz,f)*exp(-2*(dphi*dphi/(deltil*deltil)));
+}
 double xdbm[7] = {-11.55,-11.25,-10.66,-10.12,-10.67,-11.42,-11.63};
 double xpower[20] = {77.8,79.4,82.4,87.5,94.8,104.5,111.4,116.5,119.0,120.1,118.1,112.1,103.8,95.1,88.0,83.4,80.9,78.9,78.1,77.3};
 double xpos[20] = {620,590,560,530,500,470,440,410,380,350,320,290,260,230,200,170,140,110,80,50};
@@ -62,18 +70,29 @@ void coupling(){
     glinear -> SetPointError(2,1,1.78258*log(10)*0.1/10);
     axrange axl = {0,300,0,2,0,1,";Temperature[K];Power[uW]"};
     TH2D* euceta = new TH2D("euceta","#eta (#Deltaz,#Delta r);#Delta z[mm];#Delta r[mm]",20,0,0.1,20,0,0.1);
+    TH2D* argeta = new TH2D("argeta","#eta (#Deltaz,#Delta#theta);#Delta z[mm];#Delta #theta[rad]",20,0,0.025,20,0,0.025);
+
     rep(i,21){
-        rep(j,21)euceta -> SetBinContent(i,j,etar(i/200.0,j/200.0,240));
+        rep(j,21){
+            euceta -> SetBinContent(i,j,etar(i/200.0,j/200.0,240));
+            argeta -> SetBinContent(i,j,etaarg(0.00125*i,0.00125*j,240));
+        }
+
     }
     st.Hist(euceta);
+    st.Hist(argeta);
     euceta -> SetStats(0);
     euceta -> SetMinimum(0.997);
     euceta -> SetMaximum(1);
     euceta -> Draw("colz");
-    st.GraphErrors(glinear,axl);
+    argeta -> SetStats(0);
+    //euceta -> SetMinimum(0.997);
+    //euceta -> SetMaximum(1);
+    argeta -> Draw("colz");
+    /*st.GraphErrors(glinear,axl);
     glinear -> Draw("AP");
     TF1* f1 = new TF1("f1","[0]+[1]*x",0,300);
     glinear -> Fit(f1);
-    //各軸からのずれによってどの程度カップリングロスがあるのかをTH2Dで表示してみる
+    //各軸からのずれによってどの程度カップリングロスがあるのかをTH2Dで表示してみる*/
     
 }
