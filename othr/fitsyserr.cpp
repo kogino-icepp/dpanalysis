@@ -2,6 +2,7 @@
 #include <random>
 #include "../headers/fitter.h"
 using namespace std;
+#define PI 3.14159265359
 const double c= 3.0*pow(10,8);
 const double v0=220000.0;
 const double vE=v0;
@@ -12,12 +13,61 @@ const double kb=1.38*pow(10,-23);
 const double df=88.5*pow(10,3);
 const double Tc=76;
 const double Th=297;
+const double a = 4.307257;//初期のビームウエスト？(2σ分)
+const double Rh = 35.6176;//これ何？？そのうち分かるやろ
+const double focul_len = 56.87;//受信機内部のレンズの焦点距離
+const double zwindow = 57.32+76.819+171.49;
+const double lens_cord[4] = {0,57.32,zwindow,zwindow+1500};
 double candpow[6] = {0,200,400,600,800,1000};
 double candmass[3] = {220,240,260};
 Color_t candcolor[3] = {kBlue,kRed,kGreen};
 double v_conv(double f,double f0){
     double rtn=c*sqrt(1-((f0/f)*(f0/f)));
     return rtn;
+}
+double initial_w0(double a,double Rh,double freq){
+    freq *= pow(10,9);
+    double w = a*0.644;
+    double lambda = c/freq;
+    double rtn = w/(1+pow(PI*w*w/(lambda*Rh),2));
+    return rtn;
+}
+double initial_z0(double a,double Rh,double freq){
+    freq *= pow(10,9);
+    double w = a*0.644;
+    double lambda = c/freq;
+    double rtn = Rh/(1+pow(lambda*Rh/(PI*w*w),2));
+    return rtn;
+}
+vector<double> lens(double din,double w0_in,double freq){//ここでz0とw0outを出す
+    freq *= pow(10,9);
+    double lambda = c/freq;
+    double zc = PI*w0_in*w0_in/lambda;
+    double A = din/focul_len-1;
+    double dout = focul_len*(1+A/(pow(A,2)+pow(zc,2)/pow(focul_len,2)));
+    double w0_out = w0_in/sqrt(pow(A,2)+pow(zc,2)/pow(focul_len,2));
+    vector<double> rtn = {dout,w0_out};
+    return rtn;
+}
+void west_freq(){
+    TGraph* graph = new TGraph;
+    int index = 0;
+    for(double freq=216;freq<261;freq+=1){
+        double beam_params[3][2];
+        beam_params[0][0] = -initial_z0(a,Rh,freq);
+        beam_params[0][1] = initial_w0(a,Rh,freq);
+        rep(i,2){
+            double din = lens_cord[i+1]-(beam_params[i][0]+lens_cord[i]);
+            vector<double> ans = lens(din,beam_params[i][1],freq);
+            beam_params[i+1][0] = ans[0];
+            beam_params[i+1][1] = ans[1];
+        }
+        graph -> SetPoint(index,freq,beam_params[2][0]);
+        index++;
+    }
+    axrange ax = {216,260,0,300,0,1,";;"};
+    //st.Graph(graph,ax);
+    graph -> Draw("AC");
 }
 double F_nu(double f,double f0){
     double rtn;
@@ -87,8 +137,8 @@ void fitsyserr(){
     TH1* signal3 = new TH1D("signal3",";Freq[GHz];Spec[a.u.]",20,f0-dnu,f0+19*dnu);
     //周波数220,240,260GHzに対してmassをビン内で変えながら(5kHz刻みで±35kHzまでいけるはず)ピークフィットし、真の値からのずれを評価する
     double delF = 30*pow(10,-6);
-    
-    rep(f,1){//大きな周波数の刻み(3パターン)
+    west_freq();
+    /*rep(f,3){//大きな周波数の刻み(3パターン)
         for(int d=-7;d<8;d++){//massを8パターンにずらして実験する(d=0が0シフト)
             double Psum = 0;
             double Perrsum = 0;

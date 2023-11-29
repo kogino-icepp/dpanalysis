@@ -367,37 +367,7 @@ void MakeWhite(int i,int j,int p/*,double (&vec)[nbin]*/){
         wgraph -> Draw("AP");
         peakf -> Draw("same");
     }
-    /*TF1* peakgaus = new TF1("peakgaus","gaus",-1,1);
-    //c1 -> SetLogy();
-    phist -> Draw();
-    phist -> Fit(peakgaus);
-    //シグマの値で規格化してどれくらいのシグマなのか一旦詰める
-    double psigma = peakgaus -> GetParameter("Sigma");
-    int L = fitdata.size();
-    TH1D* normhist = new TH1D("normhist","P/dP;P/dP;Counts",100,-5,5);
-
-    rep(i,L){
-        double np = fitdata[i].second/psigma;
-        normhist -> Fill(np);
-        fitdata[i].second = np;
-        //vec[v.first] = np;
-    }
-    TF1* normgaus = new TF1("normgaus","gaus",-5,5);
-    normhist -> Fit(normgaus);
-    st.Hist(normhist);
-    c1 -> SetLogy();
-    normhist -> Draw();
-    normgaus -> Draw("same");
-    filesystem::current_path(savedirp);
-    string gname = "normhist"+to_string(i)+"_"+to_string(j)+"_1.ps";
-    //c1 -> SaveAs(gname.c_str());
-    double normerr = normgaus -> GetParameter("Sigma");
-    cout << "normgaus = " << normerr;
-    for(auto v:fitdata){
-        if(v.second>3)cout << v.first << " " << v.second << endl;
-    }*/
-    //見積もったσが1でない場合にそれを補正して再度詰め直す→その上でexceedがある点を探す
-
+    
 }
 
 void chiroot_check() {

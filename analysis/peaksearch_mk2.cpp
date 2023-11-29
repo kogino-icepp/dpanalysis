@@ -82,15 +82,7 @@ double F_sig2(double f,double f0,double P,double r){
     }
     else return 0;
 }
-/*double F_sig_delta(double f,double f0,double P,double r,double delF){
-    if(f-r*dNu-delF<=0){
-        return ;
-    }
-    else if(f-r*dNu-delF>0){
-        return 0;
-    }
 
-}*/
 double CoupConst2(double p,double dp){
     if(p<0)return 2*1.3458*4.5*pow(10,-14)*sqrt(dp*1.96*pow(10,23))*sqrt(1/Aeff);
     else return 2*1.3458*4.5*pow(10,-14)*sqrt((dp*1.96+p)*pow(10,23))*sqrt(1/Aeff);
@@ -395,7 +387,7 @@ void ChiSep(int i,int j,int p){
     graph -> Draw("AP");*/
 }
 //limitを計算できるように配列を入れるようにする、入らなかったら泣く
-void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1D* hist,TH1D* hist2){
+void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1D* hist,TH1D* hist2,TFile*savefile){
     Mask ms;
     vector<vector<int>> mskmap = ms.maskmap;
     bool mskhantei[4][nbin];
@@ -464,9 +456,34 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
     int cstart = 0;
     double poutlist[nbin];
     TH1D* whitehist = new TH1D("whitehist","P_{fit};P_fit[K*Hz];Count",100,-1,1);
+    /*
+    フィットの結果が明らかに悪いものを格納した配列。bin,chi/ndf,pfitをとりあえず格納する。
+    データ数はとりあえず100取っておけば大丈夫でしょうという目算
+    */
+    
+    /*
+    ピークフィットして得られた結果を記録していく。記録する対象は
+    1.bin   2.Pfit  3.chi/ndf   4.そもそもまともにフィットがされたか
+    */
+    savefile -> cd();
+    string savetname = "tree"+to_string(2*j+(p-1));
+    TTree* savetree = new TTree(savetname.c_str(),savetname.c_str());
+    int binF;
+    double pfitF,dpfitF,chiNDFF;
+    savetree -> Branch("bin",&binF,"bin/I");
+    savetree -> Branch("pfit",&pfitF,"pfit/D");
+    savetree -> Branch("dpfit",&dpfitF,"dpfit/D");
+    savetree -> Branch("chiNDF",&chiNDFF,"chiNDF/D");
+    double baddata[1000][4];
+    int badindex = 0;
     for(int bin=sb;bin<fb;bin++){
+        /*binF = bin;
+        pfitF = DINF;
+        dpfitF = DINF;
+        chiNDFF = DINF;*/
         if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF){
             //cout << "Pass" << endl;
+            //savetree -> Fill();
             continue;
         }
         bool togemask = false;
@@ -521,7 +538,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
             double y = pgraph -> GetPointY(bin-sb+k);
             fitgraph -> SetPoint(k,x,y);
             if(k<10 || k>=20){
-                sigma += pow(y-(a*(x-b)*(x-b)+c),2);
+                sigma += (y-(a*(x-b)*(x-b)+c))*(y-(a*(x-b)*(x-b)+c));
             }
             if(k==bpos){
                 if(y>a*(x-b)*(x-b)+c)peakquad -> SetParameter(4,0.1);
@@ -531,38 +548,41 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         sigma /= 17;
         sigma = sqrt(sigma);
         rep(k,dbin)fitgraph -> SetPointError(k,0,sigma);//エラーを手で変更
-        //cout << sigma << endl;
-        //if(sigma<0.5)hist -> Fill(sigma);
-        //else hist -> Fill(0.48);
         st.GraphErrors(fitgraph,axtest);
         
         //if(sigma>0.2)cout << bin << " " << sigma << endl;
         fitgraph -> Draw("AP");
         peakquad -> FixParameter(3,mfreq);
         peakquad -> SetParameter(4,0.1);//ベースラインより下なら負、上なら正の初期値にしてみるとか？
-        rep(ite,5)fitgraph -> Fit(peakquad,"Q","",sfreq,ffreq);
-        rep(ite,5)fitgraph -> Fit(peakquad,"EQ","",sfreq,ffreq);
+        rep(ite,10)fitgraph -> Fit(peakquad,"Q0","",sfreq,ffreq);
+        rep(ite,10)fitgraph -> Fit(peakquad,"MQ0","",sfreq,ffreq);
         //フィットがある程度収束するまでこれ続ける
-        double fitres = 10000000;
-        double fitres2 = 10000001;
-        double fiterr = 500000;//不本意だが
+        /*double fitres = 10000000;
+        double fitres2 = 10000001;*/
+        double fiterr = 500000;
         int count = 0;
         //案1: エラーがある程度小さくなるまで忖度し続ける-> そもそもlimit計算の段階で謎のエラーが出力されているのはなぜ?
-        rep(ite,100000){
-            fitres2 = fitres;
-            fitgraph -> Fit(peakquad,"MQ","",sfreq,ffreq);
+        while(fiterr>1){
+            fitgraph -> Fit(peakquad,"EQ","",sfreq,ffreq);
+            fiterr = peakquad -> GetParError(4);
+            count++;
+            if(count>100)break;
+        }
+        rep(ite,1){
+            //fitres2 = fitres;
+            
             /*if(result.Get() != nullptr && result->IsValid()){
                 cout << "sucess!" << endl;
             }
-            else cout << "Fail" << endl;*/
+            else cout << "Fail" << endl;
             fitres = peakquad -> GetParameter(4);
             fiterr = peakquad -> GetParError(4);
-            if(abs(fitres-fitres2)<0.0000001){
+            if(abs(fitres-fitres2)<0.00001){
                 if(fiterr<1){
                     //cout << "ite: " << ite << endl;
                     break;}
                 else continue;
-            }
+            }*/
             //cout << "ite " << ite << endl;
         }
         /*while(abs(fitres-fitres2)>0.0000001){
@@ -573,35 +593,46 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
             fiterr = peakquad -> GetParError(4);
             count++;
         }*/
-        arcount[cstart] = count;
-        cstart++;
-        double pout = peakquad -> GetParameter(4);
-        double dpout = peakquad -> GetParError(4);
-        //pout *= 2*kb*df;
         fitgraph -> Draw("AP");
         peakquad -> Draw("same");
-        dlist[bin] = pout;
-        deltaP[bin] = dpout;
+        
         double chi = peakquad -> GetChisquare();
         int ndf = peakquad -> GetNDF();
+
+        double pout = peakquad -> GetParameter(4);
+        double dpout = peakquad -> GetParError(4);
+        dlist[bin] = pout;
+        deltaP[bin] = dpout;
+        //cout << "dpout : " << dpout << endl;
+        if(dpout>10){
+            if(badindex>900)continue;
+            baddata[badindex][0] = bin;
+            baddata[badindex][1] = dpout;
+            baddata[badindex][2] = sigma;
+            baddata[badindex][3] = chi/ndf;
+            badindex++;
+        }
+        //pout *= 2*kb*df;
+        
+        pfitF = pout;
+        dpfitF = dpout;
+        chiNDFF = chi/ndf;
+        savetree -> Fill();
         hist -> Fill(chi/ndf);
         whitehist -> Fill(pout);
         poutlist[index] = pout;
         index++;
         //cout << pout << " " << dpout << endl;
-        //hist -> Fill(pout/0.242115);
-        //if(vpchi[bin]<3)hist2 -> Fill(pout/0.242115);
-        /*if(abs(pout/0.242115)>5){
-            outlist[index] = bin;
-            outvalue[index] = pout/0.242115;
-            index ++;
-        }
-        //deltaP[i*2+j+(2-p)][bin+11] = pout;*/
+        
     }
-    TF1* fgaus = new TF1("fgaus","gaus",-1,1);
+    rep(p,badindex){
+        cout << "bin: " << baddata[p][0] <<  " | dpout= " << baddata[p][1] << " | sigma= " << baddata[p][2] << endl;
+        cout << "chi/NDF= " << baddata[p][3] << endl;
+    }
+    /*TF1* fgaus = new TF1("fgaus","gaus",-1,1);
     whitehist -> Fit(fgaus);
     double DeltaP = fgaus -> GetParameter("Sigma");
-    rep(bin,index)hist2 -> Fill(poutlist[bin]/DeltaP);
+    rep(bin,index)hist2 -> Fill(poutlist[bin]/DeltaP);*/
     
     //rep(bin,cstart)cout << "count: "<< arcount[bin] << endl;
     
@@ -621,10 +652,8 @@ void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
     TGraph* glimit = new TGraph;
     int gbin = 0;
     //deltaPの平均化
-    //周波数をどう引っ張ってくるかが問題、割合どうせ分かってるもんなあ
     //TH1* delhist = nullptr;
     prep(bin,sb,fb){
-        //探索されていない場合をパスしてそれ以外を足し上げる(何回足しあげたかはきちんとカウント)
         int num = 0;
         double dlim = 0;
         double vardeltaP = 0;
@@ -690,14 +719,15 @@ void peaksearch_mk2(){
     double testlist[8][nbin];
     
     rep(i,8)rep(j,nbin)testlist[i][j] = DINF;
-    for(int fn=1;fn<14;fn++){
+    for(int fn=11;fn<12;fn++){
+        string roofilename = "peakfitdata"+to_string(fn)+".root";
+        //TFile * savefile = new TFile(roofilename.c_str(),"recreate");
         for(int j=0;j<4;j++){
             prep(p,1,3){
                 //ファイル読み出し
                 //描画するヒストグラムの名前を毎回作る
                 string nhist = "P_{fit}/#DeltaP(" + to_string(fn)+"_"+to_string(j)+"_"+to_string(p)+");P_{fit}/#DeltaP;Count";
                 TH1D* normhist = new TH1D("normhist",nhist.c_str(),100,-10,10);
-                TH1D* normhist2 = new TH1D("normhist2",nhist.c_str(),100,-10,10);
                 TH1D* sighist = new TH1D("sighist","#Delta P_{fit};#Delta P_{fit}[K*Hz];Count",100,0,0.5);
                 TH1D* whitehist = new TH1D("whitehist","P_{fit};P_fit[K*Hz];Count",100,-1,1);
                 TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
@@ -711,25 +741,11 @@ void peaksearch_mk2(){
                 TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
                 c1 -> SetMargin(0.14,0.11,0.2,0.1);
                 //ChiSep(fn,j,p);
-                /*ChiCheck2(fn,j,p,chihist,chihist2);
-                st.Hist(chihist);
-                c1 -> SetLogy();
                 
-                chifit -> SetParameter(1,0.01);
-                chihist -> Draw();
-                chihist -> Fit(chifit);
-                chifit2 -> SetParameter(1,0.01);
-                chifit2 -> SetParameter(2,0.05);
-                chihist -> Draw();
-                rep(ite,10)chihist -> Fit(chifit2,"E");
-                chihist2 -> SetLineColor(kRed);
-                chihist2 -> Draw("same");
-                //TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-                //c1 -> SetMargin(0.14,0.11,0.2,0.1);
-                //c1 -> SetLogy();*/
+                //fitterを毎回回さなくてもいいように確定版のデータでなくてもいいのでrootファイルを作成して保存しておきたい
                 GetDPfit(fn,j,p,testlist[j*2+p-1],deltaP[j*2+p-1],chihist,normhist);
                 st.Hist(normhist);
-                c1 -> SetLogy();
+                /*c1 -> SetLogy();
                 sighist -> Draw();
                 normhist -> Fit("gaus");
                 filesystem::current_path(whitedir);
@@ -744,7 +760,7 @@ void peaksearch_mk2(){
                 chifit -> FixParameter(1,1.0/26);
                 chifit -> Draw("same");
                 c1 -> SaveAs(fchiname.c_str());
-                //normhist -> Fit("gaus");
+                //normhist -> Fit("gaus");*/
                 
                 //ここでファイル保存*/
                 //filesystem::current_path(whitedir);
@@ -753,6 +769,9 @@ void peaksearch_mk2(){
                 
             }
         }
+        //filesystem::current_path(saveexe);
+        //savefile -> Write();
+        //savefile -> Close();
         MakeLimit(testlist,deltaP,fn);
     }
     //今のうちに得られたリストの処理を考える(後段に作らず別で関数作る？あり！)
