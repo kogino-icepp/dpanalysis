@@ -284,7 +284,8 @@ class Fitter{
         yscale = yrange;
     }
     //基本はmake_scaleとほぼ同じだが元のスケールでのパラメータを再現できるよう最小値と最大値、xscale,yscaleを持ってもらう
-    void make_scale2(TGraph* mgraph,int sbin,double &yMin,double &yscale){
+    //
+    void make_scale2(TGraph* mgraph,TGraphErrors* graph,int sbin,double &yMin,double &yscale){
         //走査範囲のレンジ調査
         double xmin,xmax,ymin,ymax;
         ymin = 10000;
@@ -303,14 +304,24 @@ class Fitter{
         double x,y;
         prep(bin,sbin,sbin+dbin){
             y = mgraph -> GetPointY(bin);
+            //cout << y << endl;
+            if(y<ymin)ymin = y;
+            if(y>ymax)ymax = y;
+        }
+        double xrange = xmax-xmin;
+        double yrange = ymax-ymin;
+        prep(bin,sbin,sbin+dbin){
+            y = mgraph -> GetPointY(bin);
+            x = mgraph -> GetPointX(bin);
+            x = (x-xmin)/xrange;
+            y = (y-ymin)/yrange;
+            graph -> SetPoint(bin-sbin,x,y);
             if(y<ymin)ymin = y;
             if(y>ymax)ymax = y;
         }
         //レンジに合わせてセットポイントを変える
         //x -> (x-x0)/xrange, y ->  (y-ymin)/yrange ??
         
-        double xrange = xmax-xmin;
-        double yrange = ymax-ymin;
         
         yMin = ymin;
         yscale = yrange;

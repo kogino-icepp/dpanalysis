@@ -11,12 +11,14 @@ void logtest(){
     st.color = kGreen;
     TGraph* graph = new TGraph;
     TF1* area = new TF1("area","0.5",216,264);
-    axrange axg = {1,200,0,1,0,1,"check_log;m_{DP};#chi"};
-    st.Graph(graph,axg);
-    graph -> SetPoint(0,250,0.5);
-    graph -> SetPoint(1,1000,0.5);
-    graph -> SetPoint(2,10,0.5);
-    c1 -> SetLogx();
-    graph -> Draw("AP");
-    area -> Draw("same");
+    //c1 -> SetLogy();
+    for(int i=17;i<18;i++){
+        TF1* gftest = new TF1("gftest","TMath::GammaDist(x*[0]*[1],[0],0,1)*[2]",0,10);
+        gftest -> SetParameter(0,i);
+        gftest -> SetParameter(1,1);
+        gftest -> SetParameter(2,10);
+        gftest -> Draw();
+        //delete gftest;
+    }
+    
 }
