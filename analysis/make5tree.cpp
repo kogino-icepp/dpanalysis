@@ -152,7 +152,7 @@ void make5tree(){
     axrange axscale = {0,1,0,1,0,0,"After Scale;xscale;yscale"};
     vector<pair<double,double>> pairsigma;
     
-    for(int i=16;i<20;i++){
+    for(int i=16;i<17;i++){
         double dym = 0;
         int outnum = 0;
         
@@ -190,7 +190,7 @@ void make5tree(){
         int gcbin1 = 0;
         int gcbin2 = 0;
         //要件定義: カイ二乗分布でフィットするのがなぜかうまく行かない理由を探る
-        for(int j=0;j<4;j++){
+        for(int j=0;j<1;j++){
             cout << j << endl;
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
@@ -286,7 +286,7 @@ void make5tree(){
                 
             }*/
             //後々のためにフィットで得られた諸データをrootファイルで保存したい
-            filesystem::current_path(saveexe);
+            /*filesystem::current_path(saveexe);
             string tfname = "allbinbase"+to_string(i)+"_"+to_string(j)+".root";
             TFile *fout = new TFile(tfname.c_str(),"recreate");
             
@@ -300,8 +300,8 @@ void make5tree(){
             tree1 -> Branch("c",&cF,"c/D");
             tree1 -> Branch("chi",&chiF,"chi/D");
             tree1 -> Branch("bin",&binF,"bin/I");
-            tree1 -> Branch("freq",&freqF,"freq/D");
-            for(int bin=sb;bin<fb;bin++){
+            tree1 -> Branch("freq",&freqF,"freq/D");*/
+            for(int bin=sb+100;bin<sb+101;bin++){
                 //cout << bin << " : 1" << endl; 
                 bool hantei = false;
                 prep(k,bin,bin+dbin){
@@ -311,13 +311,13 @@ void make5tree(){
                     }
                 }
                 if(hantei){
-                    aF = DINF;
+                    /*aF = DINF;
                     bF = DINF;
                     cF = DINF;
                     chiF = DINF;
                     binF = bin;
                     freqF = Freq2[bin];
-                    tree1 -> Fill();
+                    tree1 -> Fill();*/
                     continue;
                 }
                 double yscale = 100000;
@@ -340,22 +340,23 @@ void make5tree(){
                 //ft.exfit(spgraph,f2,res2);
                 //cout << res1 << " : " << res2 << endl;
                 //st.GraphErrors(spgraphk,axtest);
-                //spgraphk -> Draw("AP");
-                
+                st.GraphErrors(spgraphk,axscale);
+                spgraphk -> SetLineColor(kGreen);
+                spgraphk -> Draw("AP");
                 f1 -> Draw("same");
                 //ft.all_fit(spgraph,f2,5,res2);
-                aF = f1 -> GetParameter(0);
+                /*aF = f1 -> GetParameter(0);
                 bF = f1 -> GetParameter(1);
                 cF = f1 -> GetParameter(2);
                 chiF = res1;
                 binF = bin;
                 freqF = Freq1[bin];
-                tree1 -> Fill();
+                tree1 -> Fill();*/
             }
-                
+            
             
             //offsetじゃなくて1binずつデータを管理
-            string treeName2 = "test_tree2";
+            /*string treeName2 = "test_tree2";
             TTree *tree2 = new TTree(treeName2.c_str(),treeName2.c_str());
             double aF2,bF2,cF2,chiF2,freqF2;
             int binF2;
@@ -411,7 +412,7 @@ void make5tree(){
             }
             //tree2->SaveAs(tfname2.c_str());
             fout -> Write();
-            fout -> Close();
+            fout -> Close();*/
             
             
             

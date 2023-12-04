@@ -316,8 +316,9 @@ class Fitter{
             x = (x-xmin)/xrange;
             y = (y-ymin)/yrange;
             graph -> SetPoint(bin-sbin,x,y);
-            if(y<ymin)ymin = y;
-            if(y>ymax)ymax = y;
+            //cout << x << " " << y << endl;
+            /*if(y<ymin)ymin = y;
+            if(y>ymax)ymax = y;*/
         }
         //レンジに合わせてセットポイントを変える
         //x -> (x-x0)/xrange, y ->  (y-ymin)/yrange ??

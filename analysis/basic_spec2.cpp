@@ -249,7 +249,8 @@ void basic_spec2(){
     bool cmask[4][nbin];
     rep(i,4)rep(j,nbin)cmask[i][j] = false;
     axrange axall = {215,265,0,100,0,1,";Freq[GHz];Prec[K]"};
-    for(int i=1;i<25;i++){
+    for(int i=2;i<3;i++){
+        TLegend *legend = new TLegend(0.65, 0.65, 0.85, 0.85); 
         double fmin = 213.5+i*2;
         double fmax = 216.5+i*2;
         cout << i << " : " << fmin+0.5 << " ~ " << fmax-0.5 << endl;
@@ -352,7 +353,7 @@ void basic_spec2(){
             //cout << Freq1[outbin] << " ";
             //テスト関数(デルタ関数とシグナル)を用意してヒストグラム化,FFTで変換してその物性を確かめる
             axrange axdd = {fmin,fmax,-10,10,0,1,"ddmirror;bin;sigma"};
-            axrange axraw = {fmin,fmax,0,pow(10,16),0,1,"Cold;Bin;Cold[a.u]"};
+            axrange axraw = {fmin,fmax,0,pow(10,16),0,1,"Cold;Freq[GHz];Cold[a.u]"};
             axrange axd = {12439,12469,0,pow(10,16),0,1,"dcold;Bin;dcold[a.u]"};
             double Csigma,Hsigma,Msigma;
             double ddcold[nbin],ddhot[nbin],ddmirror[nbin];
@@ -376,7 +377,7 @@ void basic_spec2(){
             TGraph* pgraph = new TGraph;
             double gain,psys;
             double ptemp;
-            rep(bin,nbin){
+            prep(bin,sb,fb){
                 gcold -> SetPoint(bin,Freq1[bin],Cold[bin]);
                 dgcold -> SetPoint(bin,bin,(Cold[bin]-Cold[bin-1])/Cold[bin]);
                 dgmirror -> SetPoint(bin,bin,(Mirror[bin]-Mirror[bin-1])/Mirror[bin]);
@@ -387,20 +388,23 @@ void basic_spec2(){
                 ddgmirror -> SetPoint(bin,Freq1[bin],ddmirror[bin]);
                 gain = (Hot[bin]-Cold[bin])/(2*kb*(Th-Tc)*df);
                 psys = (Cold[bin]/gain)-2*kb*Tc*df;
-                ptemp = (Mirror[bin]/gain-psys)
+                ptemp = (Mirror[bin]/gain-psys)/(2*kb*df);
                 ggain -> SetPoint(bin,Freq1[bin],gain);
                 gsys -> SetPoint(bin,Freq1[bin],psys);
-                pgraph -> SetPoint(bin,Freq1[bin],ptemp);
+                pgraph -> SetPoint(bin-sb,Freq1[bin],ptemp);
             }
-            if(i==1){
-                st.Graph(pgraph,axall);
-                pgraph -> Draw("AC");
+            st.Graph(pgraph,axall);
+            string lname = to_string(sbin[j]*76.2939453125*0.001)+"MHz";
+            legend->AddEntry(gcold, lname.c_str(), "l");
+            pgraph -> SetLineColor(gColor[j]);
+            if(j==0){
+                gcold -> Draw("AL");
             }
-            else pgraph -> Draw("C");
+            else gcold -> Draw("L");
             //cout << Freq1[18596]  << " : " << Freq1[22258] <<endl; 
             //怪しいチャンネルがどこで反応しているのか、何点反応しているのかなどを確かめる
             //cout << ddcold[falchan-1024] << " " << ddhot[falchan-1024] << endl;
-            st.Graph(gcold,axraw);
+            /*st.Graph(gcold,axraw);
             st.Graph(gmirror,axraw);
             st.Graph(ghot,axraw);
             st.Graph(ddgcold,axdd);
@@ -441,7 +445,12 @@ void basic_spec2(){
             //ghot -> Draw("L");*/
             
         }
+        legend -> Draw();
     }
+    
+    
+    
+    
     rep(xfft,4){
         int xoutnum = 0;
         cout << xfftname[xfft] << ": " << endl;
