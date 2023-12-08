@@ -661,7 +661,7 @@ void peaksearch_mk2(){
     string whitedir = "/Users/oginokyousuke/data/white_noise";
     //vector<vector<double>> vec(8,vector<double>(nbin,DINF));
     vector<int> excess;
-    for(int fn=2;fn<3;fn++){
+    for(int fn=1;fn<2;fn++){
         double deltaP[8][nbin];//フィットで得られたエラーを格納するための二次配列
         double testlist[8][nbin];
         double delta2P[8][nbin];//2パターンを検証するためにもう一つ生成
@@ -673,8 +673,8 @@ void peaksearch_mk2(){
         string roofilename = "peakfitdata"+to_string(fn)+".root";
         
         //TFile * savefile = new TFile(roofilename.c_str(),"recreate");
-        for(int j=0;j<4;j++){
-            prep(p,1,3){
+        for(int j=0;j<1;j++){
+            prep(p,1,2){
                 //ファイル読み出し
                 //描画するヒストグラムの名前を毎回作る
                 string nhist = "P_{fit}/#DeltaP(" + to_string(fn)+"_"+to_string(j)+"_"+to_string(p)+");P_{fit}/#DeltaP;Count";
@@ -682,7 +682,7 @@ void peaksearch_mk2(){
                 TH1D* sighist = new TH1D("sighist","#Delta P_{fit};#Delta P_{fit}[K*Hz];Count",100,0,0.5);
                 TH1D* whitehist = new TH1D("whitehist","P_{fit};P_fit[K*Hz];Count",100,-1,1);
                 TH1D* whitehist2 = new TH1D("whitehist2","P_{fit};P_fit[K*Hz];Count",100,-1,1);
-                TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
+                TH1D* chihist = new TH1D("chihist",";#chi^{2}/NDF;Count",100,0,5);
                 TH1D* chihist2 = new TH1D("chihist2","chihist;#chi^{2}/NDF;Count",100,0,5);
                 TF1* fgaus = new TF1("fgaus","gaus",-1,1);
                 string fname = "allbinbase"+to_string(fn)+"_"+to_string(j)+".root";
@@ -697,14 +697,15 @@ void peaksearch_mk2(){
                 gftest -> FixParameter(0,17);
                 gftest -> SetParameter(2,allnum);
                 gftest -> SetParameter(1,2);
-                //c1 -> SetLogy();
-                //chihist -> Draw();
+                c1 -> SetLogy();
+                st.Hist(chihist);
+                chihist -> Draw();
                 chihist -> Fit(gftest);
                 double gloerror = gftest -> GetParameter(1);
                 gloerror = 0.1/sqrt(gloerror);
                 
                 //fitterを毎回回さなくてもいいように確定版のデータでなくてもいいのでrootファイルを作成して保存しておきたい
-                GetDPfit(fn,j,p,testlist[j*2+p-1],deltaP[j*2+p-1],gloerror);
+                //GetDPfit(fn,j,p,testlist[j*2+p-1],deltaP[j*2+p-1],gloerror);
                 /*st.Hist(whitehist);
                 whitehist -> SetLineColor(kRed);
                 whitehist2 -> SetLineColor(kBlue);
@@ -732,7 +733,7 @@ void peaksearch_mk2(){
         }
         //filesystem::current_path(saveexe);*/
         //これをローカルvsグローバルの二通りで作って比較できるようにしたい
-        MakeLimit(testlist,deltaP,fn);
+       // MakeLimit(testlist,deltaP,fn);
         //delete [] deltaP;
         //delete [] testlist;
         //MakeLimit2(testlist,deltaP,testlist2,delta2P,fn);

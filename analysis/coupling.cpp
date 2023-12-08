@@ -41,6 +41,8 @@ double etaarg(double dz,double dphi,double f){
     return etaz(dz,f)*exp(-2*(dphi*dphi/(deltil*deltil)));
 }
 double xdbm[7] = {-11.55,-11.25,-10.66,-10.12,-10.67,-11.42,-11.63};
+double thetadbm[12] = {-7.86,-7.97,-5.65,-5.71,-5.55,-5.48,-5.49,-5.88,-6.7,-5.48,-5.49,-5.48};
+double theta[12] = {0,0.5,1,1.5,2,2.5,3,-0.5,-1,-1.5,-2,-2.5};
 double xpower[20] = {77.8,79.4,82.4,87.5,94.8,104.5,111.4,116.5,119.0,120.1,118.1,112.1,103.8,95.1,88.0,83.4,80.9,78.9,78.1,77.3};
 double xpos[20] = {620,590,560,530,500,470,440,410,380,350,320,290,260,230,200,170,140,110,80,50};
 double ypos[21] = {800,770,740,710,680,650,620,590,560,530,500,470,440,410,380,350,320,290,260,230,200};
@@ -61,38 +63,19 @@ void coupling(){
     TGraphErrors* gxaline = new TGraphErrors;
     TGraphErrors* gyaline = new TGraphErrors;
     TGraphErrors* glinear = new TGraphErrors;
-    glinear -> SetPoint(0,273.15+temp[0],1.45211);
-    glinear -> SetPoint(1,273.15+temp[1],1.02329);
-    glinear -> SetPoint(2,273.15+temp[2],1.78258);
-    //errorもつける
-    glinear -> SetPointError(0,1,1.45211*log(10)*0.1/10);
-    glinear -> SetPointError(1,1,1.02329*log(10)*0.1/10);
-    glinear -> SetPointError(2,1,1.78258*log(10)*0.1/10);
-    axrange axl = {0,300,0,2,0,1,";Temperature[K];Power[uW]"};
-    TH2D* euceta = new TH2D("euceta","#eta (#Deltaz,#Delta r);#Delta z[mm];#Delta r[mm]",20,0,0.1,20,0,0.1);
-    TH2D* argeta = new TH2D("argeta","#eta (#Deltaz,#Delta#theta);#Delta z[mm];#Delta #theta[rad]",20,0,0.025,20,0,0.025);
+    TGraph* gthetaaline = new TGraph;
 
-    rep(i,21){
-        rep(j,21){
-            euceta -> SetBinContent(i,j,etar(i/200.0,j/200.0,240));
-            argeta -> SetBinContent(i,j,etaarg(0.00125*i,0.00125*j,240));
-        }
-
+    rep(i,12){
+        gthetaaline ->SetPoint(i,theta[i],dBmtomW(thetadbm[i]));
     }
-    st.Hist(euceta);
-    st.Hist(argeta);
-    euceta -> SetStats(0);
-    euceta -> SetMinimum(0.997);
-    euceta -> SetMaximum(1);
-    euceta -> Draw("colz");
-    argeta -> SetStats(0);
-    //euceta -> SetMinimum(0.997);
-    //euceta -> SetMaximum(1);
-    argeta -> Draw("colz");
-    /*st.GraphErrors(glinear,axl);
-    glinear -> Draw("AP");
-    TF1* f1 = new TF1("f1","[0]+[1]*x",0,300);
-    glinear -> Fit(f1);
-    //各軸からのずれによってどの程度カップリングロスがあるのかをTH2Dで表示してみる*/
+    axrange ax = {-3,3,0,1,0,1,";#theta;Power[mW]"};
+    TF1* fgaus = new TF1("fgaus","[0]*exp(-(x-[1])*(x-[1])/(2*[2]*[2]))+[3]",-3,3);
+    fgaus -> SetParameter(3,0.3);
+    fgaus -> SetParameter(2,1);
+    fgaus -> SetParameter(0,-1);
+    fgaus -> SetParameter(1,0);
     
+    st.Graph(gthetaaline,ax);
+    gthetaaline -> Draw("AP");
+    gthetaaline -> Fit(fgaus,"E");
 }

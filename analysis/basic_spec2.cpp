@@ -248,8 +248,8 @@ void basic_spec2(){
     //要件定義：map作り直し、きちんと切れているか確認すること
     bool cmask[4][nbin];
     rep(i,4)rep(j,nbin)cmask[i][j] = false;
-    axrange axall = {215,265,0,100,0,1,";Freq[GHz];Prec[K]"};
-    for(int i=2;i<3;i++){
+    
+    for(int i=1;i<2;i++){
         TLegend *legend = new TLegend(0.65, 0.65, 0.85, 0.85); 
         double fmin = 213.5+i*2;
         double fmax = 216.5+i*2;
@@ -352,6 +352,8 @@ void basic_spec2(){
             else outbin -= sbin[j];
             //cout << Freq1[outbin] << " ";
             //テスト関数(デルタ関数とシグナル)を用意してヒストグラム化,FFTで変換してその物性を確かめる
+            axrange axtemp = {fmin,fmax,0,100,0,1,";Freq[GHz];Gain[a.u]"};
+            axrange axgain = {fmin,fmax,0,pow(10,31),0,1,";Freq[GHz];Prec[K]"};
             axrange axdd = {fmin,fmax,-10,10,0,1,"ddmirror;bin;sigma"};
             axrange axraw = {fmin,fmax,0,pow(10,16),0,1,"Cold;Freq[GHz];Cold[a.u]"};
             axrange axd = {12439,12469,0,pow(10,16),0,1,"dcold;Bin;dcold[a.u]"};
@@ -393,14 +395,19 @@ void basic_spec2(){
                 gsys -> SetPoint(bin,Freq1[bin],psys);
                 pgraph -> SetPoint(bin-sb,Freq1[bin],ptemp);
             }
-            st.Graph(pgraph,axall);
-            string lname = to_string(sbin[j]*76.2939453125*0.001)+"MHz";
-            legend->AddEntry(gcold, lname.c_str(), "l");
+            st.Graph(pgraph,axtemp);
+            st.Graph(gmirror,axraw);
+            st.Graph(ggain,axgain);
+            //st.Graph(gcold,axall);
+            //string lname = to_string(sbin[j]*76.2939453125*0.001)+"MHz";
+            //legend->AddEntry(gcold, lname.c_str(), "l");
             pgraph -> SetLineColor(gColor[j]);
-            if(j==0){
-                gcold -> Draw("AL");
+            ggain -> SetMarkerColor(kBlack);
+            ggain -> Draw("AP");
+            /*if(j==0){
+                pgraph -> Draw("AL");
             }
-            else gcold -> Draw("L");
+            else pgraph -> Draw("L");
             //cout << Freq1[18596]  << " : " << Freq1[22258] <<endl; 
             //怪しいチャンネルがどこで反応しているのか、何点反応しているのかなどを確かめる
             //cout << ddcold[falchan-1024] << " " << ddhot[falchan-1024] << endl;
@@ -445,7 +452,7 @@ void basic_spec2(){
             //ghot -> Draw("L");*/
             
         }
-        legend -> Draw();
+        //legend -> Draw();
     }
     
     
