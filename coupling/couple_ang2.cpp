@@ -76,6 +76,7 @@ void couple_ang2(){
     Double_t yhi=1;
     const Int_t n=200;
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,800,600);
+    cout << eta_2d(0,0,0) << endl;
     //TH1F *frame=gPad->DrawFrame(xlo,ylo,xhi,yhi);
     double wg=(2/pow(west(R0),2));
     //ウエストの違いがフェータルに効いてくるのでちゃんと調べないといけないのでは？
@@ -108,7 +109,7 @@ void couple_ang2(){
             //cout << cp << endl;
             graph2d->SetPoint(1000*i+j,theta,dx,cp);
         }
-        cout << i << endl;
+        
     }
     axrange ax2d = {-1,1,-20,20,0,1,"Coupling;#theta[rad];x[mm];coupling"};
     graph2d->Draw("surf1");
