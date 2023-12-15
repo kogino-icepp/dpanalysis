@@ -404,6 +404,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
     for(int j=0;j<4;j++){//mskmapに記録されているものだけtrueに変更
         for(int bin:mskmap[j])mskhantei[j][bin] = true;
     }
+    
     filesystem::path path=filesystem::current_path();
     filesystem::current_path(saveexe);
     Setting st;
@@ -461,7 +462,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
     
     int bin95 = 0;
     int index = 0;
-    TH1D* firsthist = new TH1D("firsthist",";;",100,-1,1);
+    TH1D* firsthist = new TH1D("firsthist",";P_{fit}/#Delta P_{fit};Count",100,-10,10);
     
     /*
     要件定義
@@ -522,10 +523,12 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         rep(k,dbin){
             double x = pgraph -> GetPointX(bin-sb+k);
             double y = pgraph -> GetPointY(bin-sb+k);
+            fitgraph -> SetPoint(k,x,y);
             if(k<10 || k>=20){
                 sigma += (y-(a*(x-b)*(x-b)+c))*(y-(a*(x-b)*(x-b)+c));
             }
         }
+        //scalepeak -> SetParameter(4,1);
         sigma /= 17;
         sigma = sqrt(sigma);
         rep(k,dbin){
@@ -533,47 +536,58 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
             spgraph -> SetPointError(k,0,sigma/yscale);
         }
         st.GraphErrors(spgraph,axscale);
+        //spgraph -> Draw("AP");
+        //scalepeak -> Draw("same");
         st.GraphErrors(fitgraph,axtest);
         st.GraphErrors(fitgraph2,axtest);
         double smfreq = spgraph -> GetPointX(bpos);
+        //cout << "smfreq: " << smfreq << endl;
+        //if(sigma>0.2)cout << bin << " " << sigma << endl;
+        //fitgraph -> Draw("AP");
         peakquad -> FixParameter(3,mfreq);
         scalepeak -> FixParameter(4,sfreq);
-        rep(ite,10)spgraph -> Fit(scalepeak,"Q0","",0,1);
-        rep(ite,10)spgraph -> Fit(scalepeak,"MQ0","",0,1);
-        
+        rep(ite,10){
+            //fitgraph -> Fit(peakquad,"Q0","",sfreq,ffreq);
+            spgraph -> Fit(scalepeak,"Q0","",0,1);
+        }
+        rep(ite,10){
+            //fitgraph -> Fit(peakquad,"MQ0","",sfreq,ffreq);
+            spgraph -> Fit(scalepeak,"MQ0","",0,1);
+        }
         //フィットがある程度収束するまでこれ続ける
         //fitgraph -> Fit(peakquad,"EQ","",sfreq,ffreq);
         spgraph -> Fit(scalepeak,"EQ","",0,1);
-        st.GraphErrors(spgraph,axscale);
-        spgraph -> Draw("AP");
-
+        //spgraph -> Draw("AP");
+        //scalepeak -> Draw("same");
+        //fitgraph -> Draw("AP");
+        //peakquad -> Draw("same");
+        
+       // double pout = peakquad -> GetParameter(4);
+        //double dpout = peakquad -> GetParError(4);
         double spout = scalepeak -> GetParameter(3);
         double sdpout = scalepeak -> GetParError(3);
-        
         spout *= yscale;
         sdpout *= yscale;
         dlist[bin] = spout;
         deltaP[bin] = sdpout;
-        firsthist -> Fill(spout);
-        //cout << spout << " " << sdpout << endl;
-
-        //hist -> Fill(spout);
+        index++;
+        firsthist -> Fill(spout/(sdpout));
     }
     double fmin = 213.5+i*2;
     double fmax = 216.5+i*2;
     TF1* fgaus = new TF1("fgaus","gaus");
     firsthist -> Fit(fgaus);
     st.Hist(firsthist);
+    TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+    c1 -> SetMargin(0.14,0.11,0.2,0.1);
+    c1 -> SetLogy();
     firsthist -> Draw();
     double sigma = fgaus -> GetParameter("Sigma");
-    cout << sigma << endl;
     rep(k,nbin){
-        if(dlist[k]!=DINF){
-            hist -> Fill(dlist[k]/(deltaP[k]*sigma));
-            //if(dlist[k]/(deltaP[k]*sigma)>5)cout << "outbin: " << k <<" : "  << dlist[k]/(deltaP[k]*sigma) << endl;
-        }
+        if(dlist[k]!=DINF)hist -> Fill(dlist[k]/(deltaP[k]*sigma));
     }
 }
+
 
 void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
     //獲得したpoutのデータ一覧から平均した値を出力+配列の確保を行う
@@ -743,9 +757,9 @@ void scale_peakfit(){
                 c1 -> SetMargin(0.14,0.11,0.2,0.1);
                 //fitterを毎回回さなくてもいいように確定版のデータでなくてもいいのでrootファイルを作成して保存しておきたい
                 GetDPfit(fn,j,p,testlist,testdeltaP,scalehist);
-                c1 -> SetLogy();
-                st.Hist(scalehist);
-                scalehist -> Draw();
+                //c1 -> SetLogy();
+                //st.Hist(scalehist);
+                //scalehist -> Draw();
                 //gloGetDPfit(fn,j,p,gtestlist,gtestdeltaP);
                 /*TGraph* gfitratio = new TGraph;
                 TGraph* gefitratio = new TGraph;
