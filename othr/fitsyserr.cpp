@@ -18,9 +18,11 @@ const double Rh = 35.6176;//これ何？？そのうち分かるやろ
 const double focul_len = 56.87;//受信機内部のレンズの焦点距離
 const double zwindow = 57.32+76.819+171.49;
 const double lens_cord[4] = {0,57.32,zwindow,zwindow+1500};
+
 double candpow[6] = {0,200,400,600,800,1000};
 double candmass[3] = {220,240,260};
 Color_t candcolor[3] = {kBlue,kRed,kGreen};
+axrange axscale = {0,1,0,1,0,1,";xscale;yscale"};
 double v_conv(double f,double f0){
     double rtn=c*sqrt(1-((f0/f)*(f0/f)));
     return rtn;
@@ -39,6 +41,11 @@ double initial_z0(double a,double Rh,double freq){
     double rtn = Rh/(1+pow(lambda*Rh/(PI*w*w),2));
     return rtn;
 }
+double gaus_beam_width(double w0,double z0,double freq,double z){
+    double lambda = c/(freq*pow(10,9));
+    double zc = PI*pow(w0,2)/lambda;
+    return w0*sqrt(1+(z-z0)*(z-z0)/(zc*zc));
+}
 vector<double> lens(double din,double w0_in,double freq){//ここでz0とw0outを出す
     freq *= pow(10,9);
     double lambda = c/freq;
@@ -49,6 +56,7 @@ vector<double> lens(double din,double w0_in,double freq){//ここでz0とw0out�
     vector<double> rtn = {dout,w0_out};
     return rtn;
 }
+
 void west_freq(){
     TGraph* graph = new TGraph;
     int index = 0;
@@ -89,18 +97,8 @@ double F_sig2(double f,double f0,double P,double r){
     }
     else return 0;
 }
-//仮説：f0がf0+delFに変わっただけでは？？
 double F_sig_delta(double f,double f0,double P,double r,double delF){
     double omega0 = f0+delF;
-    /*if(f+dnu*r<=f0+delF)return 0;//ここ
-    else if(f+r*dNu>f0+delF && f-(1-r)*dNu<=f0+delF){
-        return P*(F_nu(f+r*dNu,f0+delF)-F_nu(f0+delF,f0+delF));
-    }
-    else if(f-dnu*(1-r)>f0+delF){
-        return P*(F_nu(f+r*dNu,f0+delF)-F_nu(f-(1-r)*dNu,f0+delF));
-    }
-    else return 0;*/
-    //思い切ってここ作り直し、失敗したら戻ってくる
     if((f-f0)-r*dNu-delF<=0 && f>omega0-r*dNu){
         return P*(F_nu(f+r*dNu,omega0)-F_nu(omega0,omega0));
     }
@@ -109,6 +107,16 @@ double F_sig_delta(double f,double f0,double P,double r,double delF){
     }
     else return 0;
 }
+double F_sigscale(double x,double P,double r,double fmin,double delF){
+    double bin = x/0.0344827586;
+    
+    double f = fmin+bin*dnu;//ここをxとfminの関数に変える
+    double f0 = fmin+10*dnu;//ここは自明ではあるがx0からf0へ
+    return F_sig_delta(f,f0,P,r,delF);
+}
+//仮説：f0がf0+delFに変わっただけでは？？
+
+
 void checkHist(){
     TH1D* hist = new TH1D("hist",";Freq[GHz];Power",20,220-dnu,220+19*dnu);
     rep(i,20){
@@ -120,7 +128,7 @@ void checkHist(){
 void fitsyserr(){
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.15,0.1,0.2,0.1);
-
+    Fitter ft;
     Setting st;
     st.dot_size = 0.8;
     st.markerstyle = 20;
@@ -137,15 +145,25 @@ void fitsyserr(){
     //TH1* testhist2 = new TH1D("testhist2","test;Freq[GHz];",20,f0-dnu,f0+19*dnu);//実験用のヒストグラム、質量をちょっとずらす
     //testhist2 -> SetLineColor(kRed);
     //フィットのエラーを記録した図;
-    TH1* signal1 = new TH1D("signal1",";Freq[GHz];Spec[a.u.]",20,f0-dnu,f0+19*dnu);
-    TH1* signal2 = new TH1D("signal2",";Freq[GHz];Spec[a.u.]",20,f0-dnu,f0+19*dnu);
-    TH1* signal3 = new TH1D("signal3",";Freq[GHz];Spec[a.u.]",20,f0-dnu,f0+19*dnu);
-    //周波数220,240,260GHzに対してmassをビン内で変えながら(5kHz刻みで±35kHzまでいけるはず)ピークフィットし、真の値からのずれを評価する
-    //最初にあらかじめ周波数誤差がない時のシグナルのフィット結果を作っておく
-    double Pnoshift[3];
-    TGraphErrors* testgraph = new TGraphErrors;
+    //仮説
+    
+    /*TGraph* wgraph1 = new TGraph;
+    TGraph* wgraph2 = new TGraph;
+    TGraph* wgraph3 = new TGraph;
+    rep(f,3){
+        rep(j,3){
+            rep(bin,1000){
+                double z = bin*(lens_cord[j+1]-lens_cord[j])/1000+lens_cord[j];
+                double w = gaus_beam_width(beam_params[f][j][0]+lens_cord[j],beam_params[f][j][1],candmass[f],z);
+                if(f==0)wgraph1 -> SetPoint(bin,z,w);
+                else if(f==1)wgraph2 -> SetPoint(bin,z,w);
+                else wgraph3 -> SetPoint(bin,z,w);
+            }
+        }
+    }
+    wgraph1 -> Draw();
     //周波数確度に関するエラーの計算、だいぶ結果怪しいけど一旦できたことにして先すすむ。
-    /*rep(f,3){//大きな周波数の刻み(3パターン)
+    rep(f,3){//大きな周波数の刻み(3パターン)
         double Psum0 = 0;
         rep(ite,3000){
             TH1* fithist = new TH1D("fithist","",20,candmass[f]-dnu,candmass[f]+19*dnu);
@@ -205,64 +223,78 @@ void fitsyserr(){
     要件定義
     1. 220,240,260GHzに対してそれぞれ調査を行う
     2. 周波数のビン幅±35kHzを5kHzずつずらしながら、5000回シードを変えてホワイトノイズを載せる
-    3. 真値からのずれをプロットし、
-    */
-    double Pres[15];
-    double Perr[15];
+    3. 真値からのずれをプロットし
+    仮説
+    これベースラインフィットを先にしないといけないのでは？
+    、*/
     TGraphErrors* graph1 = new TGraphErrors;
     TGraphErrors* graph2 = new TGraphErrors;
     TGraphErrors* graph3 = new TGraphErrors;
-    axrange ax = {-40,40,0.5,1.5,0,1,";#Delta_{freq}[kHz];P_{fit}/P_{given}"};
-    st.GraphErrors(graph1,ax);
-    TH1D* hist1 = new TH1D("hist1",";Freq[GHz];Power",15,220-0.5*dnu,220+14.5*dnu);
-    TH1D* hist2 = new TH1D("hist2",";Freq[GHz];Power",15,220-0.5*dnu,220+14.5*dnu);
-    rep(bin,15){
-        double freq = 220+(bin-1)*dnu;
-        double dp = normrand(mt);
-        hist1 -> SetBinContent(bin,freq,F_sig_delta(freq,220,1000,0.5,0)+dp);
-        hist2 -> SetBinContent(bin,freq,dp);
-        hist1 -> SetBinError(bin,100);
-    }
-    TF1* baseline = new TF1("baseline","0");
-    baseline -> SetLineColor(kBlack);
-    hist1 -> SetLineColor(kBlue);
-    hist2 -> SetLineColor(kRed);
-    st.Hist(hist1);
-    hist1 -> Draw("HIST E");
-    hist2 -> Draw("same");
-    baseline -> Draw("same");
-    /*rep(f,1){
+    double Pres[15];
+    double Perr[15];
+    axrange axfin = {-35,35,0.7,1.2,0,1,";#Delta_{freq};P/#Delta P"};
+    
+    rep(f,1){
         //もしちょっと上手く行かなかったらここで真値を一旦出すことにする
         //多分やるべきこと：エラーを先につける→あらかじめベースラインフィット→シグナルを重ねてもう一度フィット
-        prep(d,0,1){
+        prep(d,-7,8){
+            int itenum = 5000;
             double delF = d*5*pow(10,-6);
             double Psum = 0;
-            double Pstock[5000];
-            rep(ite,1){
-                TF1* pfunc = new TF1("pfunc","F_sig_delta(x,[0],[1],0.5,0)+[2]*(x-[3])*(x-[3])+[4]",candmass[f]-dnu,candmass[f]+14*dnu);
-                TH1D* fithist = new TH1D("fithist","",15,candmass[f]-0.5*dnu,candmass[f]+14.5*dnu);
-                pfunc -> FixParameter(0,candmass[f]);
-                
-                rep(bin,15){
-                    double freq = candmass[f]+(bin-1)*dnu;
+            double Pstock[itenum];
+            rep(ite,itenum){
+                TGraphErrors* spgraph = new TGraphErrors;
+                TGraph* pgraph = new TGraph;
+                TGraphErrors* spgraphpar = new TGraphErrors;
+                rep(bin,30){
+                    double freq = 220+(bin-10)*dnu;
                     double dp = normrand(mt);
-                    fithist -> SetBinContent(bin,freq,F_sig_delta(freq,candmass[f],1000,0.5,delF));
+                    pgraph -> SetPoint(bin,freq,F_sig_delta(freq,220,1000,0.5,0*pow(10,-6))+dp);
                 }
-                rep(k,10)fithist -> Fit(pfunc,"IQ","",candmass[f]-dnu,candmass[f]+15*dnu);
-                rep(k,10)fithist -> Fit(pfunc,"IMQ","",candmass[f]-dnu,candmass[f]+15*dnu);
-                fithist -> Fit(pfunc,"IE","",candmass[f]-dnu,candmass[f]+15*dnu);
-                Pstock[ite] = pfunc -> GetParameter(1);
+                double yscale;
+                
+                ft.make_scale(spgraph,pgraph,0,yscale);
+                rep(bin,30){
+                    if(bin<10 || bin>=20){
+                        double x = spgraph -> GetPointX(bin);
+                        double y = spgraph -> GetPointY(bin);
+                        spgraphpar -> SetPoint(bin,x,y);
+                        spgraphpar -> SetPointError(bin,0,1);
+                    }
+                }
+                TF1* f1 = new TF1("f1","[0]*(x-[1])*(x-[1])+[2]",0,1);
+                TF1* scalepeak = new TF1("scalepeak","[0]*(x-[1])*(x-[1])+[2]+F_sigscale(x,[3],0.5,[4],[5])",0,1);
+                double res1;
+                st.GraphErrors(spgraph,axscale);
+                ft.allfit2(spgraphpar,f1,5,res1);
+                double a = f1 -> GetParameter(0);
+                double b = f1 -> GetParameter(1);
+                double c = f1 -> GetParameter(2);
+                double mfreq = spgraph -> GetPointX(10);
+                scalepeak -> SetParameter(0,a);
+                scalepeak -> SetParameter(1,b);
+                scalepeak -> SetParameter(2,c);
+                scalepeak -> SetParameter(3,100);
+                scalepeak -> FixParameter(4,candmass[f]-10*dnu);
+                scalepeak -> FixParameter(5,delF);
+                spgraph -> Fit(scalepeak,"EIQ","",0,1);
+                spgraph -> Draw("AP");
+                scalepeak -> Draw("same");
+                double spfit = scalepeak -> GetParameter(3);
+                
+                Pstock[ite] = spfit*yscale;
                 Psum += Pstock[ite];
                 //delete fithist;
                 //delete pfunc;
             }
-            Psum /= 5000;
+            Psum /= itenum;
             double psig = 0;
-            rep(ite,5000)psig += (Pstock[ite]-Psum)*(Pstock[ite]-Psum);
+            rep(ite,itenum)psig += (Pstock[ite]-Psum)*(Pstock[ite]-Psum);
             
-            psig = sqrt(psig/4999);
+            psig = sqrt(psig/(itenum-1));
             Perr[d+7] = psig;
             Pres[d+7] = Psum;
+            cout << "Pfit: " << Psum << " +- " << psig << endl; 
         }
         if(f==0){
             rep(bin,15){
@@ -270,16 +302,17 @@ void fitsyserr(){
                 graph1 -> SetPointError(bin,0,Perr[bin]/1000);
                 
             }
+            st.GraphErrors(graph1,axfin);
             graph1 -> SetLineColor(kBlue);
             graph1 -> SetMarkerColor(kBlue);
-            
+
         }
         else if(f==1){
             rep(bin,15){
                 graph2 -> SetPoint(bin,(bin-7)*5,Pres[bin]/1000);
                 graph2 -> SetPointError(bin,0,Perr[bin]/1000);
             }
-            st.GraphErrors(graph2,ax);
+            st.GraphErrors(graph2,axfin);
             graph2 -> SetLineColor(kRed);
             graph2 -> SetMarkerColor(kRed);
             
@@ -289,15 +322,15 @@ void fitsyserr(){
                 graph3 -> SetPoint(bin,(bin-7)*5,Pres[bin]/1000);
                 graph3 -> SetPointError(bin,0,Perr[bin]/1000);
             }
-            st.GraphErrors(graph3,ax);
+            st.GraphErrors(graph3,axfin);
             graph3 -> SetLineColor(kGreen);
             graph3 -> SetMarkerColor(kGreen);
             
         }
-    }*/
+    }
 
-    /*graph1 -> Draw("APC");
-    graph2 -> Draw("PC");
+    graph1 -> Draw("APC");
+    /*graph2 -> Draw("PC");
     graph3 -> Draw("PC");
     TLegend* legend = new TLegend(0.65, 0.65, 0.85, 0.85);
     legend -> AddEntry(graph1,"0kHz","l");

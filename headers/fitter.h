@@ -7,6 +7,8 @@
 using namespace std;
 #define rep(i,n) for(int i=0;i<n;i++)
 #define prep(i,m,n) for(int i=m;i<n;i++)
+#define rrep(i,n) for(int i=n;i>=0;i--)
+#define rprep(i,m,n) for(int i=m;i<n;i--)
 const int dbin = 30;
 typedef long long ll;
 string savedirt = "/Users/oginokyousuke/data/chi_hist/";

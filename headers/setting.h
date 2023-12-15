@@ -126,15 +126,15 @@ public:
         graph -> SetMinimum(ax.zmin);
         //x軸について
         graph -> GetXaxis() -> SetLimits(ax.xmin,ax.xmax);
-        graph -> GetXaxis() -> SetLabelSize(0.07);
+        graph -> GetXaxis() -> SetLabelSize(0.05);
         graph -> GetXaxis() -> SetTitleOffset(1);
         graph -> GetXaxis() -> SetTitleSize(0.07);
         graph -> GetXaxis() -> SetNdivisions(505);
         //y軸について
         graph -> GetYaxis() -> SetLimits(ax.ymin,ax.ymax);
-        graph -> GetYaxis() -> SetTitleOffset(1);
-        graph -> GetYaxis() -> SetLabelSize(0.07);
-        graph -> GetYaxis() -> SetTitleSize(0.07);
+        graph -> GetYaxis() -> SetTitleOffset(1.5);
+        graph -> GetYaxis() -> SetLabelSize(0.05);
+        graph -> GetYaxis() -> SetTitleSize(0.06);
         graph -> GetYaxis() -> SetNdivisions(505);
         //z軸について
         graph -> GetZaxis() -> SetTitleOffset(1);
