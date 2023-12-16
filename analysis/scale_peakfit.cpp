@@ -394,7 +394,7 @@ void gloGetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin])
     return;
 }
 //scaleした後のフィット結果を元の値に復元する、できるかな？
-void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1D* hist){
+void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1D* hist,double &sighosei){
     Mask ms;
     vector<vector<int>> mskmap = ms.maskmap;
     bool mskhantei[4][nbin];
@@ -583,13 +583,14 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
     c1 -> SetLogy();
     firsthist -> Draw();
     double sigma = fgaus -> GetParameter("Sigma");
+    sighosei = sigma;
     rep(k,nbin){
         if(dlist[k]!=DINF)hist -> Fill(dlist[k]/(deltaP[k]*sigma));
     }
 }
 
 
-void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
+/*void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
     //獲得したpoutのデータ一覧から平均した値を出力+配列の確保を行う
     //ここで統計的に薄めて過度なexcessがないかどうかを確認する
     st.lcolor = kBlue;
@@ -723,14 +724,14 @@ void alllimit(){
 
     st.Graph(limgraph,axall);
     limgraph -> Draw("AL");
-}
+}*/
 //これがメイン関数
 void scale_peakfit(){
     //まずはそれぞれ別々の情報が詰められているか確認する
     double maxbin = 0.5;
     string whitedir = "/Users/oginokyousuke/data/white_noise";
     vector<int> excess;
-    for(int fn=1;fn<2;fn++){
+    for(int fn=6;fn<7;fn++){
         TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
         double deltaP[8][nbin];
         double pfitlist[8][nbin];
@@ -742,8 +743,9 @@ void scale_peakfit(){
         }
         string roofilename = "peakfitdata"+to_string(fn)+".root";
         //TFile * savefile = new TFile(roofilename.c_str(),"recreate");
-        for(int j=0;j<1;j++){
-            prep(p,1,2){
+        double sighosei[8];
+        for(int j=0;j<4;j++){
+            prep(p,1,3){
                 double testlist[nbin];
                 double testdeltaP[nbin];
                 double gtestlist[nbin];
@@ -756,26 +758,27 @@ void scale_peakfit(){
                 TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
                 c1 -> SetMargin(0.14,0.11,0.2,0.1);
                 //fitterを毎回回さなくてもいいように確定版のデータでなくてもいいのでrootファイルを作成して保存しておきたい
-                GetDPfit(fn,j,p,testlist,testdeltaP,scalehist);
+                GetDPfit(fn,j,p,testlist,testdeltaP,scalehist,sighosei[j*2+(p-1)]);
                 //c1 -> SetLogy();
                 //st.Hist(scalehist);
                 //scalehist -> Draw();
-                //gloGetDPfit(fn,j,p,gtestlist,gtestdeltaP);
-                /*TGraph* gfitratio = new TGraph;
+                /*gloGetDPfit(fn,j,p,gtestlist,gtestdeltaP);
+                TGraph* gfitratio = new TGraph;
                 TGraph* gefitratio = new TGraph;
                 int rbin = 0;
                 prep(bin,sb,fb){
                     if(testlist[bin]==DINF)continue;
                     gfitratio -> SetPoint(rbin,bin,testlist[bin]/gtestlist[bin]);
-
+                    cout << bin << " : " << testlist[bin]/gtestlist[bin] << endl;
                     rbin++;
                 }
                 axrange axratio = {0,nbin,0,2,0,1,";Bin;Ratio"};
                 st.Graph(gfitratio,axratio);
-                gfitratio -> Draw("AP");*/
-
+                gfitratio -> Draw("AP");
+                //このfor文内でコメントアウトするときにはここを使おう！*/
             }
         }
+        rep(bin,8)cout << "hosei: " << sighosei[bin] << endl;
         
     }
     return;

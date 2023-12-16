@@ -593,3 +593,54 @@ class CheckData{
         c1 -> SaveAs(title.c_str());
     } 
 };
+class FitFunc{
+    public:
+    double v_conv(double f,double f0){
+        double c = 3.0*pow(10,8);
+        double rtn=c*sqrt(1-((f0/f)*(f0/f)));
+        return rtn;
+    }
+    double F_nu(double f,double f0){
+        double rtn;
+        double v0=220000.0;
+        double vE=v0;
+        double vc=v0;
+        double v=v_conv(f,f0);
+        double p_kata=(v+vE)/v0;
+        double m_kata=(v-vE)/v0;
+        rtn = (vc/(2*sqrt(M_PI)*vE))*(exp(-(p_kata*p_kata))-exp(-(m_kata*m_kata)));
+        rtn += 0.5*(erf(p_kata)+erf(m_kata));
+        //rtn *= (c*f0*f0)/(f*f*f*sqrt(1-(f0/f)*(f0/f)));
+        return rtn;
+    }
+    double F_sig2(double f,double f0,double P,double r){
+        double dNu=0.0000885;//周波数分解能[GHz]
+        double dnu=0.000076296;//ビン幅[GHz]
+        if(f+dnu*r<=f0)return 0;
+        else if(f+r*dNu>f0 && f-(1-r)*dNu<=f0){
+            return P*(F_nu(f+r*dNu,f0)-F_nu(f0,f0));
+        }
+        else if(f-dnu*(1-r)>f0){
+            return P*(F_nu(f+r*dNu,f0)-F_nu(f-(1-r)*dNu,f0));
+        }
+        else return 0;
+    }
+    double F_sig_delta(double f,double f0,double P,double r,double delF){
+        double omega0 = f0+delF;
+        double dNu=0.0000885;//周波数分解能[GHz]
+        if((f-f0)-r*dNu-delF<=0 && f>omega0-r*dNu){
+            return P*(F_nu(f+r*dNu,omega0)-F_nu(omega0,omega0));
+        }
+        else if((f-f0)-r*dNu-delF>0){
+            return P*(F_nu(f+r*dNu,omega0)-F_nu(f-r*dNu,omega0));
+        }
+        else return 0;
+    }
+    double F_sigscale(double x,double P,double r,double fmin,double delF){
+        double bin = x/0.0344827586;
+        double dnu=0.000076296;//ビン幅[GHz]
+        double f = fmin+bin*dnu;//ここをxとfminの関数に変える
+        double f0 = fmin+10*dnu;//ここは自明ではあるがx0からf0へ
+        return F_sig_delta(f,f0,P,r,delF);
+    }
+};

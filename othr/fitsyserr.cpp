@@ -232,7 +232,7 @@ void fitsyserr(){
     TGraphErrors* graph3 = new TGraphErrors;
     double Pres[15];
     double Perr[15];
-    axrange axfin = {-35,35,0.7,1.2,0,1,";#Delta_{freq};P/#Delta P"};
+    axrange axfin = {-35,35,0.7,1.2,0,1,";#Delta_{freq}[MHz];P/#Delta P"};
     
     rep(f,1){
         //もしちょっと上手く行かなかったらここで真値を一旦出すことにする
@@ -278,10 +278,9 @@ void fitsyserr(){
                 scalepeak -> FixParameter(4,candmass[f]-10*dnu);
                 scalepeak -> FixParameter(5,delF);
                 spgraph -> Fit(scalepeak,"EIQ","",0,1);
-                spgraph -> Draw("AP");
-                scalepeak -> Draw("same");
+                //spgraph -> Draw("AP");
+                //scalepeak -> Draw("same");
                 double spfit = scalepeak -> GetParameter(3);
-                
                 Pstock[ite] = spfit*yscale;
                 Psum += Pstock[ite];
                 //delete fithist;
@@ -294,7 +293,7 @@ void fitsyserr(){
             psig = sqrt(psig/(itenum-1));
             Perr[d+7] = psig;
             Pres[d+7] = Psum;
-            cout << "Pfit: " << Psum << " +- " << psig << endl; 
+            cout << "Pfit: " << Psum << " +- " << psig << endl;
         }
         if(f==0){
             rep(bin,15){
@@ -307,7 +306,7 @@ void fitsyserr(){
             graph1 -> SetMarkerColor(kBlue);
 
         }
-        else if(f==1){
+        /*else if(f==1){
             rep(bin,15){
                 graph2 -> SetPoint(bin,(bin-7)*5,Pres[bin]/1000);
                 graph2 -> SetPointError(bin,0,Perr[bin]/1000);
@@ -326,7 +325,7 @@ void fitsyserr(){
             graph3 -> SetLineColor(kGreen);
             graph3 -> SetMarkerColor(kGreen);
             
-        }
+        }*/
     }
 
     graph1 -> Draw("APC");
