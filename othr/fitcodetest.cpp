@@ -59,15 +59,16 @@ void fitcodetest(){
     uniform_int_distribution<> randbin(sb,fb);//どの区間を引っ張り出すかを決定
     Setting st;
     st.dot_size = 0.8;
+    st.markerstyle = 20;
     st.color = kBlue;
     st.lcolor = kBlue;
     //まずは棘検出がどの程度できるか
     TGraphErrors* sigmagraph = new TGraphErrors;
-    prep(pv,1,11){
+    prep(pv,7,11){
         double Pgiven = pv*pow(10,13);
         double Psum = 0;
         double dPsum = 0;
-        int itenum = 1000;
+        int itenum = 5000;
         double Pite[itenum];
         rep(ite,itenum){
             int i = randband(mt);
@@ -127,11 +128,14 @@ void fitcodetest(){
         Psum /= itenum;
         rep(ite,itenum)dPsum += pow(Psum-Pite[ite],2);
         dPsum = sqrt(dPsum/(itenum-1));
-        sigmagraph -> SetPoint(pv,Pgiven,Psum);
-        sigmagraph -> SetPointError(pv,0,dPsum);
-        cout << Psum << " +- " << dPsum << endl;
+        sigmagraph -> SetPoint(pv-1,pv,Psum);
+        sigmagraph -> SetPointError(pv-1,0,dPsum);
+        cout << pv << ": " << Psum << " +- " << dPsum << endl;
     }
-    axrange axsigma = {0,pow(10,14),0,100,0,1,";P_{given};ddP_{given}"};
-    st.GraphErrors(sigmagraph,axsigma);
-    sigmagraph -> Draw("AP");
+    axrange axtest = {0,10,0,10,0,1,";;"};
+    axrange axsigma = {0,11,0,100,0,1,";P_{given};ddP_{given}"};
+    //st.GraphErrors(sigmagraph,axsigma);
+    
+    //st.GraphErrors(sigmagraph,axsigma);
+    //sigmagraph -> Draw("AP");
 }

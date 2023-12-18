@@ -590,7 +590,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
 }
 
 
-/*void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
+void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
     //獲得したpoutのデータ一覧から平均した値を出力+配列の確保を行う
     //ここで統計的に薄めて過度なexcessがないかどうかを確認する
     st.lcolor = kBlue;
@@ -679,17 +679,18 @@ void alllimit(){
     st.lcolor = kBlue;
     st.color = kBlue;
     int lbin = 0;
-    prep(i,1,25){
+    prep(i,2,3){
         cout << i << endl;
         double deltaP[8][nbin];//フィットで得られたエラーを格納するための二次配列
         double pfitlist[8][nbin];
         rep(k,8)rep(bin,nbin)pfitlist[k][bin] = DINF;
             
-        rep(j,4){
-            prep(p,1,3){
+        rep(j,1){
+            prep(p,1,2){
+                double testdouble;
                 TH1D* testhist = new TH1D("testhist",";P/#Delta P;Count",100,-1,1);
                 //ここではlistに値さえ格納できれば良い
-                GetDPfit(i,j,p,pfitlist[2*j+(p-1)],deltaP[2*j+(p-1)],testhist);
+                GetDPfit(i,j,p,pfitlist[2*j+(p-1)],deltaP[2*j+(p-1)],testhist,testdouble);
                 //testhist -> Draw();
                 //testhist -> Fit("gaus");
             }
@@ -724,14 +725,15 @@ void alllimit(){
 
     st.Graph(limgraph,axall);
     limgraph -> Draw("AL");
-}*/
+}
 //これがメイン関数
 void scale_peakfit(){
     //まずはそれぞれ別々の情報が詰められているか確認する
     double maxbin = 0.5;
     string whitedir = "/Users/oginokyousuke/data/white_noise";
     vector<int> excess;
-    for(int fn=6;fn<7;fn++){
+    alllimit();
+    /*for(int fn=21;fn<22;fn++){
         TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
         double deltaP[8][nbin];
         double pfitlist[8][nbin];
@@ -775,11 +777,12 @@ void scale_peakfit(){
                 axrange axratio = {0,nbin,0,2,0,1,";Bin;Ratio"};
                 st.Graph(gfitratio,axratio);
                 gfitratio -> Draw("AP");
-                //このfor文内でコメントアウトするときにはここを使おう！*/
+                //このfor文内でコメントアウトするときにはここを使おう！
             }
         }
+        cout << fn << endl;
         rep(bin,8)cout << "hosei: " << sighosei[bin] << endl;
         
-    }
+    }*/
     return;
 }
