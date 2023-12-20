@@ -645,15 +645,17 @@ void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
                 chilim = PtoChi(1.96*vardeltaP*2*kb*df);
             }
             dlist[0][bin] = chilim;
-            glimit -> SetPoint(gbin,freq,chilim);
-            sigraph -> SetPoint(gbin,freq,sigsum);
-            sigraph -> SetPointError(gbin,0,stdsig);
+            
+            //glimit -> SetPoint(gbin,freq,chilim);
+            //sigraph -> SetPoint(gbin,freq,sigsum);
+            //sigraph -> SetPointError(gbin,0,stdsig);
+            //cout << chilim << " " << freq << endl;
             //cout << gbin << " : " << freq << " : " << sigsum << endl;
             gbin++;
         }
     }
     //cout << "fit num: " << 1750 << " ~ "  << 2000<< endl;
-    TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+    /*TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.14,0.11,0.2,0.1);
     double fmin = 213.5+i*2;
     double fmax = 216.5+i*2;
@@ -665,7 +667,8 @@ void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
     glimit -> SetLineColor(kBlue);
     c1 -> SetLogy();
     glimit -> Draw("AL");
-    //sigraph -> Draw("AL");
+    cout << "sucess " << endl;
+    //sigraph -> Draw("AL");*/
     //横軸の周波数だけなんとか引っ張れるかどうか
 }
 //一旦現実逃避で、全データに対してプロットを作るプログラムを作成する。
@@ -679,14 +682,14 @@ void alllimit(){
     st.lcolor = kBlue;
     st.color = kBlue;
     int lbin = 0;
-    prep(i,2,3){
+    prep(i,1,25){
         cout << i << endl;
         double deltaP[8][nbin];//フィットで得られたエラーを格納するための二次配列
         double pfitlist[8][nbin];
         rep(k,8)rep(bin,nbin)pfitlist[k][bin] = DINF;
             
-        rep(j,1){
-            prep(p,1,2){
+        rep(j,4){
+            prep(p,1,3){
                 double testdouble;
                 TH1D* testhist = new TH1D("testhist",";P/#Delta P;Count",100,-1,1);
                 //ここではlistに値さえ格納できれば良い
@@ -716,6 +719,7 @@ void alllimit(){
                 else freq = (216.2+i*2)-0.0000762939*bin;
                 if(pfitlist[0][bin]!=DINF){
                     limgraph -> SetPoint(lbin,freq,pfitlist[0][bin]);
+                    //cout << "bin: " << lbin << " | freq: " << freq << " <=> " << pfitlist[0][bin] << endl;
                     lbin++;
                 }
             }
@@ -732,8 +736,8 @@ void scale_peakfit(){
     double maxbin = 0.5;
     string whitedir = "/Users/oginokyousuke/data/white_noise";
     vector<int> excess;
-    alllimit();
-    /*for(int fn=21;fn<22;fn++){
+    //alllimit();
+    for(int fn=15;fn<16;fn++){
         TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
         double deltaP[8][nbin];
         double pfitlist[8][nbin];
@@ -777,12 +781,12 @@ void scale_peakfit(){
                 axrange axratio = {0,nbin,0,2,0,1,";Bin;Ratio"};
                 st.Graph(gfitratio,axratio);
                 gfitratio -> Draw("AP");
-                //このfor文内でコメントアウトするときにはここを使おう！
+                //このfor文内でコメントアウトするときにはここを使おう！*/
             }
         }
         cout << fn << endl;
         rep(bin,8)cout << "hosei: " << sighosei[bin] << endl;
         
-    }*/
+    }
     return;
 }
