@@ -42,8 +42,47 @@ Color_t vcolor[5] = {kBlue,kRed,kGreen,kCyan,kMagenta};//色変えて複数パ�
 double psigma[4] = {0.18068,0.183154,0.194241,0.186464};
 double psigma2[4] = {0.162231,0.161409,0.172565,0.166457};//ベースラインとの合わせ技でフィット　した場合の温度幅　　ここで作ったσでnormalizeすると原義1に本当になるのか
 double wsigma[4] = {0.066,0.066,0.066,0.066};
-
+double hosei[24][8] = {
+    {1.13245,1.142,1.13562,1.1432,1.14706,1.11157,1.1375,1.15458},//1
+    {1.13183,1.14521,1.13852,1.14507,1.12591,1.13597,1.12438,1.14009},
+    {1.14608,1.12456,1.12808,1.14717,1.13378,1.14064,1.11851,1.12468},
+    {1.12888,1.13746,1.14985,1.13999,1.13494,1.12805,1.13739,1.13202},
+    {1.11944,1.14097,1.14338,1.14011,1.14622,1.14715,1.12934,1.13564},//5
+    {1.14708,1.15226,1.14045,1.13297,1.1338,1.14008,1.12353,1.13136},
+    {1.13668,1.12672,1.14737,1.14072,1.12925,1.12689,1.13128,1.12511},
+    {1.12074,1.11436,1.14591,1.11498,1.11501,1.14038,1.12464,1.13384},
+    {1.1509,1.13773,1.13295,1.14587,1.15243,1.1385,1.14089,1.13442},
+    {1.14157,1.13675,1.15343,1.11896,1.12901,1.13417,1.14798,1.13203},//10
+    {1.14526,1.13279,1.14707,1.14046,1.14375,1.14713,1.13475,1.1641},
+    {1.1603,1.14312,1.1541,1.13668,1.15352,1.13539,1.14394,1.136},
+    {1.15067,1.13055,1.14324,1.13867,1.1304,1.14212,1.12163,1.13575},//13(ほとんど空)
+    {1.15356,1.13391,1.13923,1.13294,1.14626,1.14372,1.14041,1.14722},
+    {1.12344,1.13704,1.15244,1.15078,1.15253,1.15252,1.16004,1.16154},//15(data0だけ破損)
+    {1.13971,1.14376,1.15491,1.1535,1.13437,1.17363,1.16383,1.12419},
+    {1.15111,1.14801,1.1397,1.1435,1.14912,1.15738,1.13241,1.13482},
+    {1.15442,1.15381,1.1429,1.17753,1.15116,1.15322,1.15399,1.15426},
+    {1.14752,1.1495,1.1605,1.1463,1.16988,1.15173,1.15258,1.14483},
+    {1.13979,1.17492,1.13996,1.14347,1.15231,1.14718,1.1463,1.14697},//20
+    {1.14357,1.15448,1.15859,1.16217,1.16527,1.14983,1.14865,1.15189},
+    {1.14171,1.14207,1.14164,1.15007,1.14245,1.13256,1.14801,1.14365},
+    {1.14133,1.16191,1.14414,1.14913,1.14094,1.16344,1.14205,1.15776},
+    {1.13344,1.14777,1.16311,1.14814,1.14276,1.15348,1.16192,1.16808}//24
+};
 //前もって隠しておく
+pair<double,double> MeanError(vector<double>data){
+    double mean = 0;
+    double num = 0;
+    for(auto v:data){
+        mean += v;
+        num++;
+    }
+    if(num==0)return {mean,0};
+    mean /= num;
+    double rtn = 0;
+    for(auto v:data)rtn += (mean-v)*(mean-v);
+    rtn = sqrt(rtn/(num-1));
+    return {mean,rtn};
+}
 
 //フィットに使う諸々の関数群
 Double_t chiF_free(double x,double p0,double k,double p1){
@@ -230,169 +269,7 @@ void GetBasicData(int i,int j,int p,TGraph*prec){
     }
     return;
 }
-//グローバルにエラーをつけてフィッティング
-void gloGetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin]){
-    Mask ms;
-    vector<vector<int>> mskmap = ms.maskmap;
-    bool mskhantei[4][nbin];
-    for(int j=0;j<4;j++){
-        for(int bin=0;bin<nbin;bin++){mskhantei[j][bin] = false;}
-    }
-    for(int j=0;j<4;j++){//mskmapに記録されているものだけtrueに変更
-        for(int bin:mskmap[j])mskhantei[j][bin] = true;
-    }
-    filesystem::path path=filesystem::current_path();
-    filesystem::current_path(saveexe);
-    Setting st;
-    string fname = "allbinbase"+to_string(i)+"_"+to_string(j)+".root";
-    string tname = "test_tree"+to_string(p);
-    const char* filename = fname.c_str();
-    const char* treeName = tname.c_str();
-    TFile*file = TFile::Open(filename);
-    if (!file) {
-        cerr << "Error opening file " << filename << std::endl;
-        return;
-    }
-    // Get the TTree
-    TTree*tree = dynamic_cast<TTree*>(file->Get(treeName));
-    if (!tree) {
-        cerr << "Error getting tree " << treeName << " from file " << filename << std::endl;
-        file->Close();
-        return;
-    }
-    Int_t numEntries = tree->GetEntries();
-    vector<vector<double>> vparas(3,vector<double>(nbin));
-    vector<double> vpfreq(nbin,DINF);
-    vector<double> vpchi(nbin,DINF);
-    vector<int> vbin(nbin);
-    rep(i,numEntries){
-        tree -> GetEntry(i);
-        Double_t a, b, c, chi,freq;
-        int bin;
-        tree->SetBranchAddress("a", &a);
-        tree->SetBranchAddress("b", &b);
-        tree->SetBranchAddress("c", &c);
-        tree->SetBranchAddress("chi", &chi);
-        tree->SetBranchAddress("bin", &bin);
-        tree->SetBranchAddress("freq",&freq);
-        vparas[0][bin]=a;
-        vparas[1][bin]=b;
-        vparas[2][bin]=c;
-        vpfreq[bin]=freq;
-        vpchi[bin] = chi;
-    }
-    file -> Close();
-    TGraph* pgraph = new TGraph;
-    GetBasicData(i,j,p,pgraph);
-    int xfft = XFFT(i);
-    double rtn = 0;
-    double gsigma = 0;
-    double samplenum = 0;
-    prep(bin,sb,fb){
-        if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF)continue;
-        bool togemask = false;
-        rep(ad,29){
-            if(mskhantei[xfft][bin+ad]){
-                togemask = true;
-                break;
-            }
-        }
-        if(togemask)continue;
-        double sfreq,ffreq;
-        if(i%2==1){
-            sfreq = pgraph -> GetPointX(bin-sb);
-            ffreq = pgraph -> GetPointX(bin-sb+29);
-        }
-        else{
-            ffreq = pgraph -> GetPointX(bin-sb);
-            sfreq = pgraph -> GetPointX(bin-sb+29);
-        }
-        TF1* peakquad = new TF1("peakquad","[0]*(x-[1])*(x-[1])+[2]+F_sig2(x,[3],[4],0.5)",sfreq,ffreq);
-        TGraphErrors* spgraph = new TGraphErrors;
-        double yMin,yscale;
-        double xmin;
-        ft.make_scale2(pgraph,spgraph,bin-sb,yMin,yscale);
-        ft.rescale_para(vparas[0][bin],vparas[1][bin],vparas[2][bin],sfreq,yMin,ffreq-sfreq,yscale,peakquad);
-        double a = peakquad -> GetParameter(0);
-        double b = peakquad -> GetParameter(1);
-        double c = peakquad -> GetParameter(2);
-        rep(k,dbin){
-            double x = pgraph -> GetPointX(bin-sb+k);
-            double y = pgraph -> GetPointY(bin-sb+k);
-            if(k<10 || k>=20){
-                gsigma += (y-(a*(x-b)*(x-b)+c))*(y-(a*(x-b)*(x-b)+c));
-                samplenum++;
-            }
-        }
-    }
-    gsigma = sqrt(gsigma/(samplenum-1));
-    for(int bin=sb;bin<fb;bin++){
-        if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF)continue;
-        bool togemask = false;
-        rep(ad,29){
-            if(mskhantei[xfft][bin+ad]){
-                togemask = true;
-                break;
-            }
-        }
-        if(togemask)continue;
-        double sfreq,ffreq,mfreq;
-        int bpos;
-        if(i%2==1){
-            sfreq = pgraph -> GetPointX(bin-sb);
-            mfreq = pgraph -> GetPointX(bin-sb+10);
-            ffreq = pgraph -> GetPointX(bin-sb+29);
-            bpos = 10;
-        }
-        else{
-            ffreq = pgraph -> GetPointX(bin-sb);
-            mfreq = pgraph -> GetPointX(bin-sb+19);
-            sfreq = pgraph -> GetPointX(bin-sb+29);
-            bpos = 19;
-        }
-        TF1* peakquad = new TF1("peakquad","[0]*(x-[1])*(x-[1])+[2]+F_sig2(x,[3],[4],0.5)",sfreq,ffreq);
-        //F_sigscale(double x,double P,double r,double fmin)
-        TF1* scalepeak = new TF1("scalepeak","[0]*(x-[1])*(x-[1])+[2]+F_sigscale(x,[3],0.5,[4])",0,1);
-        //TF1* cubfunc = new TF1("cubfunc","[0]*x*x*x+[1]*x*x+[2]*x+[3]",sfreq,ffreq);
-        TGraphErrors* spgraph = new TGraphErrors;
-        double yMin,yscale;
-        double xmin;
-        axrange axfit = {sfreq,ffreq,40,80,0,1,"fitgraph;Freq[GHz];Prec[K]"};
-        ft.make_scale2(pgraph,spgraph,bin-sb,yMin,yscale);
-        ft.rescale_para(vparas[0][bin],vparas[1][bin],vparas[2][bin],sfreq,yMin,ffreq-sfreq,yscale,peakquad);//ここで
-        axrange axtest = {sfreq,ffreq,0,100,0,1,"SignalFit;Freq[GHz];Prec[K]"};
-        //一からプロットし直してエラーをグローバルにつけ
-        //パラメータ自体はscaleした後のデータを格納しているのでそのまま渡せばいいのでは？？
-        scalepeak -> SetParameter(0,vparas[0][bin]);
-        scalepeak -> SetParameter(1,vparas[1][bin]);
-        scalepeak -> SetParameter(2,vparas[2][bin]);
-        rep(k,dbin)spgraph -> SetPointError(k,0,gsigma/yscale);
 
-        st.GraphErrors(spgraph,axscale);
-        double smfreq = spgraph -> GetPointX(bpos);
-        peakquad -> FixParameter(3,mfreq);
-        scalepeak -> FixParameter(4,sfreq);
-        rep(ite,10)spgraph -> Fit(scalepeak,"Q0","",0,1);
-        rep(ite,10)spgraph -> Fit(scalepeak,"MQ0","",0,1);
-        
-        //フィットがある程度収束するまでこれ続ける
-        //fitgraph -> Fit(peakquad,"EQ","",sfreq,ffreq);
-        spgraph -> Fit(scalepeak,"EQ","",0,1);
-        st.GraphErrors(spgraph,axscale);
-        spgraph -> Draw("AP");
-
-        double spout = scalepeak -> GetParameter(3);
-        double sdpout = scalepeak -> GetParError(3);
-        spout *= yscale;
-        sdpout *= yscale;
-        dlist[bin] = spout;
-        deltaP[bin] = sdpout;
-        //cout << "P/dP: " << spout/sdpout << endl;
-        //hist -> Fill(spout);*/
-    }
-    cout << "gsigma = " << gsigma << endl;
-    return;
-}
 //scaleした後のフィット結果を元の値に復元する、できるかな？
 void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1D* hist){
     Mask ms;
@@ -464,13 +341,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
     int index = 0;
     TH1D* firsthist = new TH1D("firsthist",";P_{fit}/#Delta P_{fit};Count",100,-10,10);
     
-    /*
-    要件定義
-    最終結果ならびに結果の精査に必要な情報を保存するためにrootファイルを作成して保存する機能を追加する
-    ・保存したいパラメータ：bin,周波数,Pfit,dPfit,chi/ndf
-    ・注意事項：rootファイルを開いた状態で別のアレを開くとアレするらしいので競合しないように適宜closeしたり順番を工夫する
-    ・
-    */
+
     for(int bin=sb;bin<fb;bin++){
         if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF){
             continue;
@@ -557,13 +428,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         //フィットがある程度収束するまでこれ続ける
         //fitgraph -> Fit(peakquad,"EQ","",sfreq,ffreq);
         spgraph -> Fit(scalepeak,"EQ","",0,1);
-        //spgraph -> Draw("AP");
-        //scalepeak -> Draw("same");
-        //fitgraph -> Draw("AP");
-        //peakquad -> Draw("same");
-        
-       // double pout = peakquad -> GetParameter(4);
-        //double dpout = peakquad -> GetParError(4);
+
         double spout = scalepeak -> GetParameter(3);
         double sdpout = scalepeak -> GetParError(3);
         spout *= yscale;
@@ -643,163 +508,179 @@ void MakeLimit(double (&dlist)[8][nbin],double (&deltaP)[8][nbin],int i){
             }
             dlist[0][bin] = chilim;
             
-            //glimit -> SetPoint(gbin,freq,chilim);
-            //sigraph -> SetPoint(gbin,freq,sigsum);
-            //sigraph -> SetPointError(gbin,0,stdsig);
-            //cout << chilim << " " << freq << endl;
-            //cout << gbin << " : " << freq << " : " << sigsum << endl;
             gbin++;
         }
     }
-    //cout << "fit num: " << 1750 << " ~ "  << 2000<< endl;
-    /*TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-    c1 -> SetMargin(0.14,0.11,0.2,0.1);
-    double fmin = 213.5+i*2;
-    double fmax = 216.5+i*2;
-    
-    axrange axsig = {fmin,fmax,-10,10,0,1,";Freq;P_{fit}/#Delta P_{fit}"};
-    axrange axlim = {fmin,fmax,pow(10,-11),pow(10,-7),0,1,"#chi"+to_string(i)+";Freq[GHz];#chi"};
-    st.Graph(glimit,axlim);
-    st.GraphErrors(sigraph,axsig);
-    glimit -> SetLineColor(kBlue);
-    c1 -> SetLogy();
-    glimit -> Draw("AL");
-    cout << "sucess " << endl;
-    //sigraph -> Draw("AL");*/
-    //横軸の周波数だけなんとか引っ張れるかどうか
 }
-//一旦現実逃避で、全データに対してプロットを作るプログラムを作成する。
-void alllimit(){
-    TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-    c1 -> SetMargin(0.14,0.11,0.2,0.1);
-    //c1 -> SetLogy();
-    TGraph* limgraph = new TGraph;//limitのお絵描きをするフィールド
-    axrange axall = {215,265,pow(10,-11),pow(10,-8),0,1,";Freq[GHz];"};
-    int allbin = 0;
+//一旦saveが成功した扱いでファイルを読み出すコードを作っておく
+void ReadFile(int i,double (&plist)[8][nbin],double (&deltaP)[8][nbin]){
+    filesystem::current_path("/Users/oginokyousuke/data/test/");
+    string fname = "pfitres"+to_string(i)+".root";
+    TFile* file = new TFile(fname.c_str());
+    
+    rep(j,1){
+        string tname = "rtree"+to_string(j);
+        TTree* tree = (TTree*)file->Get(tname.c_str());
+        int binF;
+        double pfitF,delpfitF;
+        tree -> SetBranchAddress("bin",&binF);
+        tree -> SetBranchAddress("pfit",&pfitF);
+        tree -> SetBranchAddress("delpfit",&delpfitF);
+        int entnum = tree -> GetEntries();
+        rep(ite,entnum){
+            tree -> GetEntry(ite);
+            plist[j][binF] = pfitF;
+            deltaP[j][binF] = delpfitF;
+            cout << binF << " : " << pfitF << " <=> " << delpfitF << endl;
+        }
+    }
+    file -> Close();
+    //本当は上で二次元配列に詰めて描画までやっちゃいたい(一旦別で関数を作ってみる)
+}
+//平均化したP/dPのグラフ作成の図
+void P_dP(int i,double (&plist)[8][nbin],double (&deltaP)[8][nbin]){
+    TGraphErrors* graph = new TGraphErrors;
+    int xfft = XFFT(i);
+    int pbin = 0;
+    int shift[4];
+    if(xfft%2==1)shift[0] = 0,shift[1]=512,shift[2]=-512,shift[3]=-1024;
+    else shift[0] = 0,shift[1]=-512,shift[2]=512,shift[3]=1024;
+    prep(bin,sb,fb){
+        int num = 0;
+        vector<double> list;
+        rep(ite,8){
+            int j = ite/2;
+            if(plist[ite][bin+shift[j]]==DINF)continue;
+            num++;
+            list.push_back(plist[ite][bin+shift[j]]/(deltaP[ite][bin+shift[j]]*hosei[i][ite]));
+        }
+        if(num==0)continue;
+        double prave,prerr;
+        prave = MeanError(list).first;
+        prerr = MeanError(list).second;
+        double freq;
+        //周波数の導出
+        if(i%2==1)freq = (213.8+i*2)+0.0000762939*bin;
+        else freq = (216.2+i*2)-0.0000762939*bin;
+        graph -> SetPoint(pbin,freq,prave);
+        graph -> SetPointError(pbin,0,prerr);
+        pbin++;
+    }
+    st.dot_size = 0.6;
     st.lcolor = kBlue;
     st.color = kBlue;
+    st.markerstyle = 20;
+    axrange ax = {213.8+2*i,216.2+2*i,-10,10,0,1,";Freq[GHz];P_{fit}/#DeltaP_{fit}"};
+    st.GraphErrors(graph,ax);
+    graph -> Draw("AP");
+}
+//一旦bandごとにdrawできるプログラムを書く
+void DrawLimit(){
+    TGraph* limgraph = new TGraph;
     int lbin = 0;
     prep(i,1,25){
-        cout << i << endl;
-        double deltaP[8][nbin];//フィットで得られたエラーを格納するための二次配列
-        double pfitlist[8][nbin];
-        rep(k,8)rep(bin,nbin)pfitlist[k][bin] = DINF;
-            
-        rep(j,4){
-            prep(p,1,3){
-                double testdouble;
-                TH1D* testhist = new TH1D("testhist",";P/#Delta P;Count",100,-1,1);
-                //ここではlistに値さえ格納できれば良い
-                GetDPfit(i,j,p,pfitlist[2*j+(p-1)],deltaP[2*j+(p-1)],testhist);
-                //testhist -> Draw();
-                //testhist -> Fit("gaus");
+        int xfft = XFFT(i);
+        int shift[4];
+        if(xfft%2==1)shift[0] = 0,shift[1]=512,shift[2]=-512,shift[3]=-1024;
+        else shift[0] = 0,shift[1]=-512,shift[2]=512,shift[3]=1024;
+        double pfitlist[8][nbin],deltaP[8][nbin];
+        rep(j,8)rep(bin,nbin)pfitlist[j][bin] = DINF;
+        ReadFile(i,pfitlist,deltaP);
+        prep(bin,sb,fb){
+            double p95 = 0;
+            double vardeltaP = 0;
+            int num  = 0;
+            rep(ite,8){
+                int j = ite/2;
+                if(pfitlist[ite][bin]==DINF)continue;
+                p95 += pfitlist[ite][bin+shift[j]];
+                vardeltaP += deltaP[ite][bin+shift[j]];
+                num++;
             }
+            if(num==0)continue;
+            p95 /= num;
+            vardeltaP /= num;
+            double freq;
+            if(i%2==1)freq = (213.8+i*2)+0.0000762939*bin;
+            else freq = (216.2+i*2)-0.0000762939*bin;
+            double chilim;
+            if(p95>0)chilim = PtoChi((p95+1.96*vardeltaP)*2*1.358*2*kb*df);
+            else chilim = PtoChi(1.96*vardeltaP*2*1.358*2*kb*df);
+            limgraph -> SetPoint(lbin,freq,chilim);
+            lbin++;
         }
-        MakeLimit(pfitlist,deltaP,i);
-        if(i%2==1){
-            prep(bin,sb,fb){
-                double freq;
-                //周波数の導出
-                if(i%2==1)freq = (213.8+i*2)+0.0000762939*bin;
-                else freq = (216.2+i*2)-0.0000762939*bin;
-                if(pfitlist[0][bin]!=DINF){
-                    limgraph -> SetPoint(lbin,freq,pfitlist[0][bin]);
-                    lbin++;
-                }
-            }
-        }
-        else{
-            rprep(bin,fb,sb){
-                double freq;
-                //周波数の導出
-                if(i%2==1)freq = (213.8+i*2)+0.0000762939*bin;
-                else freq = (216.2+i*2)-0.0000762939*bin;
-                if(pfitlist[0][bin]!=DINF){
-                    limgraph -> SetPoint(lbin,freq,pfitlist[0][bin]);
-                    //cout << "bin: " << lbin << " | freq: " << freq << " <=> " << pfitlist[0][bin] << endl;
-                    lbin++;
-                }
-            }
-        }
-        
     }
+    
 
-    st.Graph(limgraph,axall);
-    limgraph -> Draw("AL");
 }
 //これがメイン関数
-void scale_peakfit(){
+void savefitres(){
+    TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+    c1 -> SetMargin(0.14,0.11,0.2,0.1);
     //まずはそれぞれ別々の情報が詰められているか確認する
     double maxbin = 0.5;
-    string whitedir = "/Users/oginokyousuke/data/white_noise";
     vector<int> excess;
     //alllimit();
     axrange axtest;
     st.dot_size = 0.5;
     st.color = kBlue;
     st.markerstyle = 20;
-    for(int fn=1;fn<2;fn++){
+    //double pfitlist[8][nbin],deltaP[8][nbin];
+    //rep(i,8)rep(bin,nbin)pfitlist[i][bin] = DINF;
+    //ReadFile(1,pfitlist,deltaP);
+    //P_dP(1,pfitlist,deltaP);
+    for(int fn=5;fn<10;fn++){
         axtest = {213.8+2*fn,216.2+2*fn,0,2,0,1,";Freq[GHz];ratio"};
         TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
         double deltaP[8][nbin];
         double pfitlist[8][nbin];
-        double gdeltaP[8][nbin];
-        double gpfitlist[8][nbin];
         rep(i,8)rep(j,nbin){
             pfitlist[i][j] = DINF;
-            gpfitlist[i][j] = DINF;
         }
         string roofilename = "peakfitdata"+to_string(fn)+".root";
         //TFile * savefile = new TFile(roofilename.c_str(),"recreate");
-        for(int j=0;j<1;j++){
-            prep(p,1,2){
+        for(int j=0;j<4;j++){
+            prep(p,1,3){
                 double testlist[nbin];
                 double testdeltaP[nbin];
-                double gtestlist[nbin];
-                double gtestdeltaP[nbin];
                 rep(bin,nbin)testlist[bin] = DINF;
-                TH1D* whitehist1 = new TH1D("whitehist1",";P_{fit}[kHz*W];Count",100,-1,1);
-                TH1D* whitehist2 = new TH1D("whitehist2",";P_{fit}[kHz*W];Count",100,-1,1);
+                
                 TH1D* scalehist = new TH1D("scalehist",";P_{fit}/#Delta P_{fit};Count",100,-10,10);
-                TF1* fgaus = new TF1("fgaus","gaus",-10,10);
                 TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
                 c1 -> SetMargin(0.14,0.11,0.2,0.1);
                 //fitterを毎回回さなくてもいいように確定版のデータでなくてもいいのでrootファイルを作成して保存しておきたい
                 GetDPfit(fn,j,p,testlist,testdeltaP,scalehist);
-                //c1 -> SetLogy();
-                //st.Hist(scalehist);
-                //scalehist -> Draw();
-                gloGetDPfit(fn,j,p,gtestlist,gtestdeltaP);
                 
                 prep(bin,sb,fb){
                     pfitlist[2*j+(p-1)][bin] = testlist[bin];
                     deltaP[2*j+(p-1)][bin] = testdeltaP[bin];
-                    gpfitlist[2*j+(p-1)][bin] = gtestlist[bin];
-                    gdeltaP[2*j+(p-1)][bin] = gtestdeltaP[bin];
-                    cout << bin << " : "<< testlist[bin] << " <=>  " << testdeltaP[bin] << endl;
                 }
-
-                //このfor文内でコメントアウトするときにはここを使おう！*/
+                //このfor文内でコメントアウトするときにはここを使おう！
             }
         }
-        /*TGraph* gefitratio = new TGraph;
-        st.Graph(gefitratio,axtest);
-        int rbin = 0;
-        prep(bin,sb,fb){
-            double freq;
-            //周波数の導出
-            if(fn%2==1)freq = (213.8+fn*2)+0.0000762939*bin;
-            else freq = (216.2+fn*2)-0.0000762939*bin;
-            if(pfitlist[0][bin]==DINF)continue;
-            double llim,glim;
-            if(pfitlist[0][bin]>0)llim = pfitlist[0][bin]+1.96*deltaP[0][bin];
-            else llim = 1.96*deltaP[0][bin];
-            if(gpfitlist[0][bin]>0)glim = gpfitlist[0][bin]+1.96*gdeltaP[0][bin];
-            else glim = 1.96*gdeltaP[0][bin];
-            gefitratio -> SetPoint(rbin,freq,sqrt(llim/glim));
-            rbin++;
-        }*/
-        //gefitratio -> Draw("AP");
+        filesystem::current_path("/Users/oginokyousuke/data/test/");
+        string frname = "pfitres"+to_string(fn)+".root";
+        TFile* frfile = new TFile(frname.c_str(),"recreate");
+        rep(j,8){
+            string ftname = "rtree"+to_string(j);
+            TTree* frtree = new TTree(ftname.c_str(),ftname.c_str());
+            int fbinF;
+            double pfitF,delpfitF;
+            frtree -> Branch("bin",&fbinF,"bin/I");
+            frtree -> Branch("pfit",&pfitF,"pfit/D");
+            frtree -> Branch("delpfit",&delpfitF,"delpfit/D");
+            prep(bin,sb,fb){
+                if(pfitlist[j][bin]==DINF)continue;
+                fbinF = bin;
+                pfitF = pfitlist[j][bin];
+                delpfitF = deltaP[j][bin];
+                frtree -> Fill();
+            }
+            frtree -> Write();
+        }
+        
+        frfile -> Write();
+        frfile -> Close();
     }
     return;
 }

@@ -330,10 +330,7 @@ class Fitter{
         yscale = yrange;
     }
     //xmin,ymin,xscale,yscaleをもとにパラメータを元のスケールに直す関数
-    void rescale_para(double &a,double &b,double &c,double xmin,double ymin,double xscale,double yscale,TF1*f){
-        //c = ;
-        //b = ;
-        //a = ;
+    void rescale_para(double a,double b,double c,double xmin,double ymin,double xscale,double yscale,TF1*f){
         f -> SetParameter(0,a*yscale/(xscale*xscale));
         f -> SetParameter(1,b*xscale+xmin);
         f -> SetParameter(2,c*yscale+ymin);
@@ -547,7 +544,7 @@ class Fitter{
             //cout << "---------------" << endl;
             rep(j,selnum)f -> SetParameter(j,paras[j]);
             rep(j,ite){
-                graph -> Fit(f,"Q","",0,1);
+                graph -> Fit(f,"Q0","",0,1);
             }
             double chi2 = f -> GetChisquare();
             double ndf = f -> GetNDF();

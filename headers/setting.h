@@ -165,5 +165,21 @@ public:
         }
         return chi2;
     }
+    //フィットした後の情報をボックスにして描画する
+    void SetStatInfo(TCanvas* canv,TGraphErrors*graph,TF1*f){
+        TPaveText* paveText = new TPaveText(0.15, 0.75, 0.35, 0.95, "brNDC");
+        paveText -> SetName("fitResults");
+        paveText -> SetBorderSize(1);
+        paveText -> SetFillColor(0);
+        paveText -> SetTextAlign(12);
+        paveText -> SetTextFont(42);
+        canv -> Update();  // Make sure the canvas is up-to-date for gPad to work
+        canv -> Modified();
+        paveText -> AddText("Fit Results:");
+        paveText -> AddText(Form(" Chi: %.4f", f -> GetChisquare()));
+        paveText -> AddText(Form(" NDF: %d", f -> GetNDF()));
+        paveText -> AddText(Form(" Error: %.4f",graph -> GetErrorY(0)));
+        paveText->Draw();
+    }
     
 };
