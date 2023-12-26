@@ -249,7 +249,7 @@ void basic_spec2(){
     bool cmask[4][nbin];
     rep(i,4)rep(j,nbin)cmask[i][j] = false;
     
-    for(int i=1;i<2;i++){
+    for(int i=9;i<10;i++){
         TLegend *legend = new TLegend(0.65, 0.65, 0.85, 0.85); 
         double fmin = 213.5+i*2;
         double fmax = 216.5+i*2;
@@ -355,7 +355,7 @@ void basic_spec2(){
             axrange axtemp = {fmin,fmax,0,100,0,1,";Freq[GHz];Gain[a.u]"};
             axrange axgain = {fmin,fmax,0,pow(10,31),0,1,";Freq[GHz];Prec[K]"};
             axrange axdd = {fmin,fmax,-10,10,0,1,"ddmirror;bin;sigma"};
-            axrange axraw = {fmin,fmax,0,pow(10,16),0,1,"Cold;Freq[GHz];Cold[a.u]"};
+            axrange axraw = {fmin,fmax,0,pow(10,16),0,1,"Spectrum;Freq[GHz];Spectrum[a.u]"};
             axrange axd = {12439,12469,0,pow(10,16),0,1,"dcold;Bin;dcold[a.u]"};
             double Csigma,Hsigma,Msigma;
             double ddcold[nbin],ddhot[nbin],ddmirror[nbin];
@@ -380,73 +380,60 @@ void basic_spec2(){
             double gain,psys;
             double ptemp;
             prep(bin,sb,fb){
-                gcold -> SetPoint(bin,Freq1[bin],Cold[bin]);
+                gcold -> SetPoint(bin-sb,Freq1[bin],Cold[bin]);
                 dgcold -> SetPoint(bin,bin,(Cold[bin]-Cold[bin-1])/Cold[bin]);
                 dgmirror -> SetPoint(bin,bin,(Mirror[bin]-Mirror[bin-1])/Mirror[bin]);
-                ghot -> SetPoint(bin,Freq1[bin],Hot[bin]);
-                gmirror -> SetPoint(bin,Freq1[bin],Mirror[bin]);
+                ghot -> SetPoint(bin-sb,Freq1[bin],Hot[bin]);
+                gmirror -> SetPoint(bin-sb,Freq1[bin],Mirror[bin]);
                 ddgcold -> SetPoint(bin,Freq1[bin],ddcold[bin]);
                 ddghot -> SetPoint(bin,bin,ddhot[bin]);
                 ddgmirror -> SetPoint(bin,Freq1[bin],ddmirror[bin]);
                 gain = (Hot[bin]-Cold[bin])/(2*kb*(Th-Tc)*df);
                 psys = (Cold[bin]/gain)-2*kb*Tc*df;
                 ptemp = (Mirror[bin]/gain-psys)/(2*kb*df);
-                ggain -> SetPoint(bin,Freq1[bin],gain);
-                gsys -> SetPoint(bin,Freq1[bin],psys);
+                ggain -> SetPoint(bin-sb,Freq1[bin],gain);
+                gsys -> SetPoint(bin-sb,Freq1[bin],psys);
                 pgraph -> SetPoint(bin-sb,Freq1[bin],ptemp);
             }
+            axrange axsys = {fmin,fmax,0,pow(10,-14),0,1,";Freq[GHz];Psys[W]"};
             st.Graph(pgraph,axtemp);
-            st.Graph(gmirror,axraw);
+            st.Graph(gcold,axraw);
             st.Graph(ggain,axgain);
-            //st.Graph(gcold,axall);
+            st.Graph(gsys,axsys);
+            c1 -> SetLogy();
+            gcold -> SetLineColor(kBlue);
+            ghot -> SetLineColor(kRed);
+            gmirror -> SetLineColor(kGreen);
+            gcold -> Draw("AL");
+            ghot -> Draw("L");
+            gmirror -> Draw("L");
+            //ggain -> Draw("AL");
             //string lname = to_string(sbin[j]*76.2939453125*0.001)+"MHz";
             //legend->AddEntry(gcold, lname.c_str(), "l");
-            pgraph -> SetLineColor(gColor[j]);
-            ggain -> SetMarkerColor(kBlack);
-            ggain -> Draw("AP");
+            //pgraph -> SetLineColor(gColor[j]);
+            //ggain -> SetMarkerColor(kBlack);
+            //ggain -> Draw("AP");
             /*if(j==0){
                 pgraph -> Draw("AL");
             }
-            else pgraph -> Draw("L");
+            else pgraph -> Draw("L");*/
             //cout << Freq1[18596]  << " : " << Freq1[22258] <<endl; 
             //怪しいチャンネルがどこで反応しているのか、何点反応しているのかなどを確かめる
             //cout << ddcold[falchan-1024] << " " << ddhot[falchan-1024] << endl;
-            /*st.Graph(gcold,axraw);
-            st.Graph(gmirror,axraw);
-            st.Graph(ghot,axraw);
-            st.Graph(ddgcold,axdd);
-            st.Graph(ddgmirror,axdd);
-            st.Graph(dgcold,axd);
-            st.Graph(dgmirror,axd);
-            string ctitle = "Cold"+to_string(i)+"_"+to_string(j)+";Freq[GHz];Cold[a.u]";
-            string htitle = "Hot"+to_string(i)+"_"+to_string(j)+";Freq[GHz];Hot[a.u]";
-            string mtitle = "Mirror"+to_string(i)+"_"+to_string(j)+";Freq[GHz];Mirror[a.u]";
+            //st.Graph(gcold,axraw);
             
             //c1 -> SetLogy();
-            ghot -> SetLineColor(kRed);
-            gcold -> SetLineColor(kBlue);
-            gmirror -> SetLineColor(kGreen);
-            ddgmirror -> SetLineColor(kGreen);
-            //gcold -> SetTitle(ctitle.c_str());
-            gcold -> SetTitle("Spectrum;Freq[GHz];Spectrum[a.u]");
-            ghot -> SetTitle(htitle.c_str());
-            gmirror -> SetTitle(mtitle.c_str());
-            ctitle = "Cold"+to_string(i)+"_"+to_string(j)+".ps";
-            htitle = "Hot"+to_string(i)+"_"+to_string(j)+".ps"; 
-            mtitle = "Mirror"+to_string(i)+"_"+to_string(j)+".ps";
-            gcold -> Draw("AL");
-            ghot -> Draw("L"); 
-            gmirror -> Draw("L");
-            TLegend *legend = new TLegend(0.7, 0.5, 0.85, 0.7);
+            
+            TLegend *legend = new TLegend(0.7, 0.3, 0.85, 0.5);
             legend->AddEntry(gcold, "Cold", "l");
             legend->AddEntry(ghot, "Hot", "l");
             legend->AddEntry(gmirror, "Mirror", "l"); 
             legend->SetBorderSize(0); // 凡例のボーダーを非表示に
-            //legend->Draw();
-            axrange axg = {fmin,fmax,0,pow(10,31),0,1,"Gain;Freq[GHz];Gain[a.u]"};
-            axrange axsys = {fmin,fmax,0,pow(10,-15),0,1,"Psys;Freq[GHz];Psys[W]"};
-            st.Graph(ggain,axg);
-            st.Graph(gsys,axsys);
+            legend->Draw();
+            //axrange axg = {fmin,fmax,0,pow(10,31),0,1,"Gain;Freq[GHz];Gain[a.u]"};
+            //axrange axsys = {fmin,fmax,0,pow(10,-15),0,1,"Psys;Freq[GHz];Psys[W]"};
+            //st.Graph(ggain,axg);
+            //st.Graph(gsys,axsys);
             //ggain -> Draw("AC");
             //ddgmirror -> Draw("AL");
             //ghot -> Draw("L");*/
@@ -458,7 +445,7 @@ void basic_spec2(){
     
     
     
-    rep(xfft,4){
+    /*rep(xfft,4){
         int xoutnum = 0;
         cout << xfftname[xfft] << ": " << endl;
         prep(bin,sb,fb-30){
@@ -485,5 +472,5 @@ void basic_spec2(){
             if(hantei)xoutnum++;
         }
         cout << xoutnum << endl;
-    }
+    }*/
 }

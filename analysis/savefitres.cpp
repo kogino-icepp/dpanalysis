@@ -80,7 +80,7 @@ pair<double,double> MeanError(vector<double>data){
     mean /= num;
     double rtn = 0;
     for(auto v:data)rtn += (mean-v)*(mean-v);
-    rtn = sqrt(rtn/(num-1));
+    rtn = sqrt(rtn/(num));
     return {mean,rtn};
 }
 
@@ -96,7 +96,7 @@ double v_conv(double f,double f0){
     return rtn;
 }
 double PtoChi(double P){
-    return 4.5*pow(10,-14)*sqrt(P*pow(10,23))*sqrt(1/0.385);
+    return 4.5*pow(10,-14)*sqrt(P*pow(10,23)*2*1.35)*sqrt(1/0.279);
 }
 double F_nu(double f,double f0){
     double rtn;
@@ -158,6 +158,12 @@ int XFFT(int i){
     else xfft = 0;
     return xfft;
 }
+//[W]の単位でP_95%を算出する関数,limitではない
+double P95(double pfit,double deltap){
+    if(pfit>0)return (pfit+1.96*deltap)*2*kb*df;
+    else return 1.96*deltap*2*kb*df;
+}
+
 void ChiCheck2(int i,int j,int p,TH1D*hist){
     int xfft = XFFT(i);
     Mask ms;
@@ -427,8 +433,15 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         }
         //フィットがある程度収束するまでこれ続ける
         //fitgraph -> Fit(peakquad,"EQ","",sfreq,ffreq);
-        spgraph -> Fit(scalepeak,"EQ","",0,1);
-
+        rep(ite,100){
+            spgraph -> Fit(scalepeak,"EQ","",0,1);
+            double sdpout = scalepeak -> GetParError(3);
+            if(sdpout*yscale<10){
+                //cout << ite << endl;
+                break;
+            }
+        }
+        
         double spout = scalepeak -> GetParameter(3);
         double sdpout = scalepeak -> GetParError(3);
         spout *= yscale;
@@ -518,7 +531,7 @@ void ReadFile(int i,double (&plist)[8][nbin],double (&deltaP)[8][nbin]){
     string fname = "pfitres"+to_string(i)+".root";
     TFile* file = new TFile(fname.c_str());
     
-    rep(j,1){
+    rep(j,8){
         string tname = "rtree"+to_string(j);
         TTree* tree = (TTree*)file->Get(tname.c_str());
         int binF;
@@ -531,105 +544,162 @@ void ReadFile(int i,double (&plist)[8][nbin],double (&deltaP)[8][nbin]){
             tree -> GetEntry(ite);
             plist[j][binF] = pfitF;
             deltaP[j][binF] = delpfitF;
-            cout << binF << " : " << pfitF << " <=> " << delpfitF << endl;
+            //cout << binF << " : " << pfitF << " <=> " << delpfitF << endl;
         }
     }
     file -> Close();
     //本当は上で二次元配列に詰めて描画までやっちゃいたい(一旦別で関数を作ってみる)
 }
-//平均化したP/dPのグラフ作成の図
-void P_dP(int i,double (&plist)[8][nbin],double (&deltaP)[8][nbin]){
-    TGraphErrors* graph = new TGraphErrors;
-    int xfft = XFFT(i);
+//平均化したP/dPのグラフ作成の図 なんかエラーが大きい気がするのは気のせい？
+void P_dP(){
+    //ここを任意の区間まで拡張して書きたい(多分大丈夫、知らんけど何処かで誤魔化す)
+    TGraphErrors* graph = new TGraphErrors;//描画グラフ
     int pbin = 0;
-    int shift[4];
-    if(xfft%2==1)shift[0] = 0,shift[1]=512,shift[2]=-512,shift[3]=-1024;
-    else shift[0] = 0,shift[1]=-512,shift[2]=512,shift[3]=1024;
-    prep(bin,sb,fb){
-        int num = 0;
-        vector<double> list;
-        rep(ite,8){
-            int j = ite/2;
-            if(plist[ite][bin+shift[j]]==DINF)continue;
-            num++;
-            list.push_back(plist[ite][bin+shift[j]]/(deltaP[ite][bin+shift[j]]*hosei[i][ite]));
+    axrange axall = {215.8,264.2,-10,10,0,1,";Freq[GHz];P_{fit}/#DeltaP_{fit}"};
+    int si = 1;
+    int fi = 18;
+    prep(i,si,fi){
+        cout << "band" << i << endl;
+        int xfft = XFFT(i);
+        double pfitlist[8][nbin],deltaP[8][nbin];
+        rep(ite,8)rep(bin,nbin)pfitlist[ite][bin] = DINF;
+        ReadFile(i,pfitlist,deltaP);
+        int shift[4];
+        if(xfft%2==1)shift[0] = 0,shift[1]=512,shift[2]=-512,shift[3]=-1024;
+        else shift[0] = 0,shift[1]=-512,shift[2]=512,shift[3]=1024;
+        prep(bin,sb,fb){
+            int num = 0;
+            vector<double> list;
+            rep(ite,8){
+                int j = ite/2;
+                if(pfitlist[ite][bin+shift[j]]==DINF)continue;
+                num++;
+                list.push_back(pfitlist[ite][bin+shift[j]]/(deltaP[ite][bin+shift[j]]*hosei[i][ite]));
+                //cout << pfitlist[ite][bin+shift[j]] << endl;
+            }
+            if(num==0)continue;
+            double prave,prerr;
+            prave = MeanError(list).first;
+            prerr = MeanError(list).second;
+            double freq;
+            //周波数の導出
+            if(i%2==1)freq = (213.8+i*2)+0.0000762939*bin;
+            else freq = (216.2+i*2)-0.0000762939*bin;
+            graph -> SetPoint(pbin,freq,prave);
+            
+            graph -> SetPointError(pbin,0,prerr);
+            if(prave+prerr>5 || prave-prerr<-5){
+                cout << "num ->" << num << endl;
+                cout << "out ->" << prave-prerr <<endl;
+            }
+            pbin++;
         }
-        if(num==0)continue;
-        double prave,prerr;
-        prave = MeanError(list).first;
-        prerr = MeanError(list).second;
-        double freq;
-        //周波数の導出
-        if(i%2==1)freq = (213.8+i*2)+0.0000762939*bin;
-        else freq = (216.2+i*2)-0.0000762939*bin;
-        graph -> SetPoint(pbin,freq,prave);
-        graph -> SetPointError(pbin,0,prerr);
-        pbin++;
+        
     }
     st.dot_size = 0.6;
     st.lcolor = kBlue;
     st.color = kBlue;
     st.markerstyle = 20;
-    axrange ax = {213.8+2*i,216.2+2*i,-10,10,0,1,";Freq[GHz];P_{fit}/#DeltaP_{fit}"};
-    st.GraphErrors(graph,ax);
+    st.GraphErrors(graph,axall);
     graph -> Draw("AP");
 }
 //一旦bandごとにdrawできるプログラムを書く
 void DrawLimit(){
-    TGraph* limgraph = new TGraph;
-    int lbin = 0;
-    prep(i,1,25){
+    TGraph* chigraph = new TGraph;//カイ二乗分布
+    axrange axall = {215.8,264.2,0,pow(10,-8),0,1,";Freq[GHz];P_{fit}/#DeltaP_{fit}"};
+    int chibin = 0;
+    prep(i,8,9){
+        double pfitlist[8][nbin],deltaP[8][nbin];
+        rep(ite,8)rep(bin,nbin)pfitlist[ite][bin] = DINF;
+        ReadFile(i,pfitlist,deltaP);
         int xfft = XFFT(i);
         int shift[4];
         if(xfft%2==1)shift[0] = 0,shift[1]=512,shift[2]=-512,shift[3]=-1024;
         else shift[0] = 0,shift[1]=-512,shift[2]=512,shift[3]=1024;
-        double pfitlist[8][nbin],deltaP[8][nbin];
-        rep(j,8)rep(bin,nbin)pfitlist[j][bin] = DINF;
-        ReadFile(i,pfitlist,deltaP);
-        prep(bin,sb,fb){
-            double p95 = 0;
-            double vardeltaP = 0;
-            int num  = 0;
+        vector<pair<double,double>> res;
+        prep(bin,sb+100,fb-100){
+            int num = 0;
+            vector<double> pvec;
+            vector<double> evec;
             rep(ite,8){
                 int j = ite/2;
-                if(pfitlist[ite][bin]==DINF)continue;
-                p95 += pfitlist[ite][bin+shift[j]];
-                vardeltaP += deltaP[ite][bin+shift[j]];
+                if(pfitlist[ite][bin+shift[j]]==DINF)continue;
                 num++;
+                pvec.push_back(pfitlist[ite][bin+shift[j]]);
+                evec.push_back(deltaP[ite][bin+shift[j]]);
+                //cout << pfitlist[ite][bin+shift[j]] << endl;
             }
             if(num==0)continue;
-            p95 /= num;
-            vardeltaP /= num;
+            //今回はpfitの平均値とdeltaPfitの平均値をそれぞれ値として使っているが本当にそれでいいのか？
+            double pave,errave;
+            pave = MeanError(pvec).first;
+            errave = MeanError(evec).first;
             double freq;
+            //周波数の導出
             if(i%2==1)freq = (213.8+i*2)+0.0000762939*bin;
             else freq = (216.2+i*2)-0.0000762939*bin;
-            double chilim;
-            if(p95>0)chilim = PtoChi((p95+1.96*vardeltaP)*2*1.358*2*kb*df);
-            else chilim = PtoChi(1.96*vardeltaP*2*1.358*2*kb*df);
-            limgraph -> SetPoint(lbin,freq,chilim);
-            lbin++;
+            res.push_back({freq,PtoChi(P95(pave,errave))});
+
+            /*if(PtoChi(P95(pave,errave))>pow(10,-10)){
+                rep(j,8){
+                    cout << pvec[j] << " +- " << evec[j] << endl;
+                }
+                cout << "bin: " << bin << " => " << pave << " +- " << errave << endl;
+            }*/
         }
+        sort(res.begin(),res.end());
+        
+        for(auto v:res){
+            chigraph -> SetPoint(chibin,v.first,v.second);
+            chibin++;
+        }
+        
     }
     
-
+    st.Graph(chigraph,axall);
+    chigraph -> Draw("AL");
 }
 //これがメイン関数
 void savefitres(){
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.14,0.11,0.2,0.1);
+    c1 -> SetLogy();//ログスケールにしたいかどうかでいじるのはここだけ！
     //まずはそれぞれ別々の情報が詰められているか確認する
     double maxbin = 0.5;
     vector<int> excess;
     //alllimit();
-    axrange axtest;
+    
     st.dot_size = 0.5;
     st.color = kBlue;
     st.markerstyle = 20;
+    st.lcolor = kBlue;
+    int band = 1;
+    double fmin = 213.8+2*band;
+    double fmax = 216.2+2*band;
+    axrange axtest = {fmin,fmax,0,5*pow(10,-18),0,1,";Freq[GHz];#Delta P[W]"};
     //double pfitlist[8][nbin],deltaP[8][nbin];
     //rep(i,8)rep(bin,nbin)pfitlist[i][bin] = DINF;
-    //ReadFile(1,pfitlist,deltaP);
+    //P_dP();
+    DrawLimit();
+    //ReadFile(band,pfitlist,deltaP);
+    //TGraph* testgraph = new TGraph;
+    /*int tbin = 0;
+    prep(bin,sb,fb){
+        if(pfitlist[0][bin]==DINF)continue;
+        double freq;
+        //周波数の導出
+        if(band%2==1)freq = (213.8+band*2)+0.0000762939*bin;
+        else freq = (216.2+band*2)-0.0000762939*bin;
+        double dlim;
+        
+        testgraph -> SetPoint(tbin,freq,P95(pfitlist[0][bin],deltaP[0][bin]));
+        tbin++;
+    }
+    st.Graph(testgraph,axtest);
+    testgraph -> Draw("AL");*/
+
     //P_dP(1,pfitlist,deltaP);
-    for(int fn=5;fn<10;fn++){
+    /*for(int fn=7;fn<25;fn++){
         axtest = {213.8+2*fn,216.2+2*fn,0,2,0,1,";Freq[GHz];ratio"};
         TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
         double deltaP[8][nbin];
@@ -681,6 +751,6 @@ void savefitres(){
         
         frfile -> Write();
         frfile -> Close();
-    }
+    }*/
     return;
 }

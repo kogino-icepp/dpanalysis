@@ -158,7 +158,8 @@ void fitcodetest(){
     */
     //TGraphErrors* resgraph = new TGraphErrors;
     TGraph* resgraph = new TGraph;
-    prep(pg,1,4){
+    for(int pg=1;pg<15;pg+=2){
+        double pgiven = pg*0.1;
         int rnum = 0;
         vector<double> reslist;
         rep(ite,itenum){
@@ -167,7 +168,7 @@ void fitcodetest(){
             int mbin = randbin(mt);//質量に対応するbin
             int j = j0/2;
             int p = 1+j0%2;
-            double pgiven = pg;
+            
             int xfft = XFFT((i));
             bool hantei = false;
             prep(bin,-30,31){
@@ -296,7 +297,7 @@ void fitcodetest(){
             spgraph -> Draw("AP");
             spgraphk -> Draw("P");
             scalepeak -> Draw("same");
-            st.SetStatInfo(c1,spgraph,scalepeak);
+            //st.SetStatInfo(c1,spgraph,scalepeak);
             // TPaveText* paveText = new TPaveText(0.15, 0.75, 0.35, 0.95, "brNDC");
             // paveText -> SetName("fitResults");
             // paveText -> SetBorderSize(1);
@@ -319,7 +320,7 @@ void fitcodetest(){
             //これもしかして面倒臭いけどまたスケール→フィット→リスケール？？
         }
         pair<double,double> fin = MeanError(reslist);
-        resgraph -> SetPoint(pg-1,pg,fin.first/fin.second);
+        resgraph -> SetPoint(pg-1,pgiven,fin.first/fin.second);
         //resgraph -> SetPointError(pg-1,0,fin.second);
         //cout<< fin.first << " +- " << fin.second << endl;
         /*rep(i,10)sigmagraph -> SetPoint(i,i+1,ratio[i]);
@@ -330,9 +331,9 @@ void fitcodetest(){
         //st.GraphErrors(sigmagraph,axsigma);
         sigmagraph -> Draw("AP");*/
     }
-    axrange axres = {0,11,0,100,0,1,";P_{given}[K*kHz];P_{fit}[K*kHz]"};
+    axrange axres = {0,11,0,100,0,1,";P_{given}[K*kHz];P_{fit}/#DeltaP_{fit}[K*kHz]"};
     st.Graph(resgraph,axres);
     resgraph -> Draw("AP");
-    TF1* f = new TF1("f","x",0,11);
-    f -> Draw("same");
+    //TF1* f = new TF1("f","x",0,11);
+    //f -> Draw("same");
 }
