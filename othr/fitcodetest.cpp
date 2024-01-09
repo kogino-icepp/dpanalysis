@@ -20,6 +20,7 @@ const double Tc=76;
 const double Th=297;
 axrange axscale = {0,1,0,1,0,1,"test_data;xscale;yscale"};
 vector<int> sbin = {0,512,-512,-1024};
+double cfreq[3] = {220,240,260};
 const vector<int> lsbo = {1,3,5,13,15,17};
 const vector<int> lsbi = {2,4,6,14,16,18};
 const vector<int> usbi = {7,9,11,19,21,23};
@@ -142,6 +143,7 @@ void fitcodetest(){
     uniform_int_distribution<> randband(1,24);//取り出すバンドをランダムに決定
     uniform_int_distribution<> randj(0,7);//取り出す測定番号を決定
     uniform_int_distribution<> randbin(sb,fb);//どの区間を引っ張り出すかを決定
+    uniform_real_distribution<> randfreq(-0.5,0.5);
     Setting st;
     st.dot_size = 0.8;
     st.markerstyle = 20;
@@ -150,24 +152,29 @@ void fitcodetest(){
     //まずは棘検出がどの程度できるか
     TGraph* sigmagraph = new TGraph;
     double ratio[10] = {0.692,0.97,0.995,0.997,0.999,1,1,1,1,1};
-    int itenum = 300;
+    
+    int itenum = 200;
     /*
     考えるべき事項
     1. 載せるシグナルの積分値が大体どのくらいであるのが良いのか(感度に直すとどのくらいといえば良いのだろうか)
     2. 今回はキャリブレーションデータに載せるのが対象なのでまずはそこの取り出しからやるべき
     */
     //TGraphErrors* resgraph = new TGraphErrors;
-    TGraph* resgraph = new TGraph;
-    for(int pg=1;pg<15;pg+=2){
-        double pgiven = pg*0.1;
-        int rnum = 0;
+    //同じベースライン位置でシグナルの値だけ変えてみる？、SNはもう調べた
+    TGraphErrors* resgraph = new TGraphErrors;
+    double pgiven = 10;//pgivenは固定、フィットの周波数を固定した上で実際の周波数がずれているときにフィット精度がどのくらい出るのかを検証する
+    double Delta = dnu/10;
+    prep(c,0,3){
+        double F = cfreq[c];
         vector<double> reslist;
+        vector<double> ereslist;
         rep(ite,itenum){
             int i = randband(mt);
             int j0 = randj(mt);
             int mbin = randbin(mt);//質量に対応するbin
             int j = j0/2;
             int p = 1+j0%2;
+            double rf = randfreq(mt);
             
             int xfft = XFFT((i));
             bool hantei = false;
@@ -225,8 +232,11 @@ void fitcodetest(){
             double caldata[nbin];
             double gain,psys,ptemp;
             TGraph* pgraph = new TGraph;
+            TGraph* pgraph2 = new TGraph;
+            TGraph* pgraph3 = new TGraph;
             TGraphErrors* spgraph = new TGraphErrors;
-            
+            TGraphErrors* spgraph2 = new TGraphErrors;//周波数を前に1/2ビンずらしたもの
+            TGraphErrors* spgraph3 = new TGraphErrors;//周波数を後に1/2binずらしたもの
             int sbin,fbin;
             if(i%2==1){
                 sbin = mbin-10;
@@ -241,12 +251,20 @@ void fitcodetest(){
                 gain = (hot[bin]-cold[bin])/(2*kb*(Th-Tc)*df);
                 psys = (cold[bin]/gain)-2*kb*Tc*df;
                 ptemp = (mirror[bin]/gain-psys)/(2*kb*df);
-                caldata[bin] = ptemp+F_sig2(Freq[bin],Freq[mbin],pgiven,0.5);
-                pgraph -> SetPoint(bin-sbin,Freq[bin],caldata[bin]);
+                double cal1 = ptemp+F_sig2(Freq[bin],F+rf,pgiven,0.5);
+                //double cal2 = ptemp+F_sig2(Freq[bin],Freq[mbin]+dnu/2,pgiven,0.5);
+                //double cal3 = ptemp+F_sig2(Freq[bin],Freq[mbin]-dnu/2,pgiven,0.5);
+                //cout << df  << endl;
+                pgraph -> SetPoint(bin-sbin,Freq[bin],cal1);
+                //pgraph2 -> SetPoint(bin-sbin,Freq[bin],cal2);
+                //pgraph3 -> SetPoint(bin-sbin,Freq[bin],cal3);
             }
-            double yscale;
+            double yscale,yscale2,yscale3;
             ft.make_scale(spgraph,pgraph,0,yscale);
+            //ft.make_scale(spgraph2,pgraph2,0,yscale2);
+            //ft.make_scale(spgraph3,pgraph3,0,yscale3);
             TGraphErrors* spgraphk = new TGraphErrors;
+            
             rep(spbin,dbin){
                 if(spbin<10 || spbin>=20){
                     double x = spgraph -> GetPointX(spbin);
@@ -254,11 +272,15 @@ void fitcodetest(){
                     double ye = spgraph -> GetErrorY(spbin);
                     spgraphk -> SetPoint(spbin,x,y);
                     spgraphk -> SetPointError(spbin,0,ye);
+                    //cout << x << " " << y << endl;
                 }
             }
             double res1;
             TF1* f1 = new TF1("f1","[0]*(x-[1])*(x-[1])+[2]",0,1);
             TF1* scalepeak = new TF1("scalepeak","[0]*(x-[1])*(x-[1])+[2]+F_sigscale(x,[3],0.5,[4])",0,1);
+            //TF1* scalepeak2 = new TF1("scalepeak2","[0]*(x-[1])*(x-[1])+[2]+F_sigscale(x,[3],0.5,[4])",0,1);
+            //TF1* scalepeak3 = new TF1("scalepeak3","[0]*(x-[1])*(x-[1])+[2]+F_sigscale(x,[3],0.5,[4])",0,1);
+
             ft.allfit2(spgraphk,f1,5,res1);
             double a = f1 -> GetParameter(0);
             double b = f1 -> GetParameter(1);
@@ -274,6 +296,8 @@ void fitcodetest(){
             terr = sqrt(terr/17);
             rep(spbin,30){
                 spgraph -> SetPointError(spbin,0,terr);
+                //spgraph2 -> SetPointError(spbin,0,terr);
+                //spgraph3 -> SetPointError(spbin,0,terr);
                 spgraphk -> SetPointError(spbin,0,terr);
             }
             double fmin = min(Freq[sbin],Freq[fbin]);
@@ -285,19 +309,51 @@ void fitcodetest(){
             scalepeak -> SetParameter(2,c);
             scalepeak -> FixParameter(4,fmin);
             scalepeak -> SetParameter(3,0.1);
+
+            // scalepeak2 -> SetParameter(0,a);
+            // scalepeak2 -> SetParameter(1,b);
+            // scalepeak2 -> SetParameter(2,c);
+            // scalepeak2 -> FixParameter(4,fmin);
+            // scalepeak2 -> SetParameter(3,0.1);
+
+            // scalepeak3 -> SetParameter(0,a);
+            // scalepeak3 -> SetParameter(1,b);
+            // scalepeak3 -> SetParameter(2,c);
+            // scalepeak3 -> FixParameter(4,fmin);
+            // scalepeak3 -> SetParameter(3,0.1);
+
             rep(ite,20)spgraph -> Fit(scalepeak,"IQ0","",0,1);
             rep(ite,20)spgraph -> Fit(scalepeak,"IMQ0","",0,1);
             rep(ite,1)spgraph -> Fit(scalepeak,"IEQ","",0,1);
+
+            // rep(ite,20)spgraph2 -> Fit(scalepeak2,"IQ0","",0,1);
+            // rep(ite,20)spgraph2 -> Fit(scalepeak2,"IMQ0","",0,1);
+            // rep(ite,1)spgraph2 -> Fit(scalepeak2,"IEQ","",0,1);
+
+            // rep(ite,20)spgraph3 -> Fit(scalepeak3,"IQ0","",0,1);
+            // rep(ite,20)spgraph3 -> Fit(scalepeak3,"IMQ0","",0,1);
+            // rep(ite,1)spgraph3 -> Fit(scalepeak3,"IEQ","",0,1);
             double res = scalepeak -> GetParameter(3);
+            double eres = scalepeak -> GetParError(3);
             st.GraphErrors(spgraphk,axscale);
             spgraphk -> SetMarkerColor(kRed);
             spgraphk -> SetLineColor(kRed);
-            //cout << res*yscale << endl;
             st.GraphErrors(spgraph,axscale);
+            // st.GraphErrors(spgraph2,axscale);
+            // st.GraphErrors(spgraph3,axscale);
+            // spgraph2 -> SetMarkerColor(kRed);
+            // spgraph3 -> SetMarkerColor(kGreen);
             spgraph -> Draw("AP");
-            spgraphk -> Draw("P");
+            // spgraph2 -> Draw("P");
+            // spgraph3 -> Draw("P");
+            //spgraphk -> Draw("P");
+            scalepeak -> SetLineColor(kBlue);
+            // scalepeak2 -> SetLineColor(kRed);
+            // scalepeak3 -> SetLineColor(kGreen);
             scalepeak -> Draw("same");
-            //st.SetStatInfo(c1,spgraph,scalepeak);
+            // scalepeak2 -> Draw("same");
+            // scalepeak3 -> Draw("same");
+            st.SetStatInfo(c1,spgraph,scalepeak);
             // TPaveText* paveText = new TPaveText(0.15, 0.75, 0.35, 0.95, "brNDC");
             // paveText -> SetName("fitResults");
             // paveText -> SetBorderSize(1);
@@ -313,27 +369,28 @@ void fitcodetest(){
             // paveText->Draw();
         
             reslist.push_back(res*yscale);
+            ereslist.push_back(eres*yscale);
             //cout << res*yscale << endl;
-            rnum++;
+            //rnum++;
 
             //cout << Freq[mbin] << endl;
             //これもしかして面倒臭いけどまたスケール→フィット→リスケール？？
         }
         pair<double,double> fin = MeanError(reslist);
-        resgraph -> SetPoint(pg-1,pgiven,fin.first/fin.second);
-        //resgraph -> SetPointError(pg-1,0,fin.second);
-        //cout<< fin.first << " +- " << fin.second << endl;
-        /*rep(i,10)sigmagraph -> SetPoint(i,i+1,ratio[i]);
-        axrange axtest = {0,10,0,10,0,1,";;"};
-        axrange axsigma = {0,11,0,1,0,1,";P_{given}[#times 10^{13}a.u];correct_ratio"};
-        st.Graph(sigmagraph,axsigma);
+        pair<double,double> efin = MeanError(ereslist);
+        resgraph -> SetPoint(pd-1,pd*0.1,fin.first/efin.first);
+        resgraph -> SetPointError(pd-1,0,0);
         
-        //st.GraphErrors(sigmagraph,axsigma);
-        sigmagraph -> Draw("AP");*/
+        //cout<< fin.first << " +- " << fin.second << endl;
     }
-    axrange axres = {0,11,0,100,0,1,";P_{given}[K*kHz];P_{fit}/#DeltaP_{fit}[K*kHz]"};
-    st.Graph(resgraph,axres);
+    axrange axres = {0,3,0,10,0,1,";P_{given};P_{fit}[K*kHz]/#DeltaP_{fit}"};
+    st.GraphErrors(resgraph,axres);
     resgraph -> Draw("AP");
+    rep(i,11){
+        double ratio = resgraph -> GetPointY(i);
+        //double rratio = resgraph -> GetErrorY(i);
+        cout << i << " +- " << ratio << endl;
+    }
     //TF1* f = new TF1("f","x",0,11);
     //f -> Draw("same");
 }

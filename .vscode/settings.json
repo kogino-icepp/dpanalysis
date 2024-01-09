@@ -33,7 +33,8 @@
         "queue": "cpp",
         "__tuple": "cpp",
         "complex": "cpp",
-        "filesystem": "cpp"
+        "filesystem": "cpp",
+        "ratio": "cpp"
     },
     "python.testing.pytestArgs": [
         "othr"

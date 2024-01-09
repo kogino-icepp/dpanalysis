@@ -248,8 +248,10 @@ void basic_spec2(){
     //要件定義：map作り直し、きちんと切れているか確認すること
     bool cmask[4][nbin];
     rep(i,4)rep(j,nbin)cmask[i][j] = false;
-    
-    for(int i=9;i<10;i++){
+    TGraph* ggratio = new TGraph;
+    int gbin = 0;
+    double rmax = 0;
+    for(int i=16;i<17;i++){
         TLegend *legend = new TLegend(0.65, 0.65, 0.85, 0.85); 
         double fmin = 213.5+i*2;
         double fmax = 216.5+i*2;
@@ -352,7 +354,7 @@ void basic_spec2(){
             else outbin -= sbin[j];
             //cout << Freq1[outbin] << " ";
             //テスト関数(デルタ関数とシグナル)を用意してヒストグラム化,FFTで変換してその物性を確かめる
-            axrange axtemp = {fmin,fmax,0,100,0,1,";Freq[GHz];Gain[a.u]"};
+            axrange axtemp = {fmin,fmax,0,100,0,1,";Freq[GHz];Prec[K]"};
             axrange axgain = {fmin,fmax,0,pow(10,31),0,1,";Freq[GHz];Prec[K]"};
             axrange axdd = {fmin,fmax,-10,10,0,1,"ddmirror;bin;sigma"};
             axrange axraw = {fmin,fmax,0,pow(10,16),0,1,"Spectrum;Freq[GHz];Spectrum[a.u]"};
@@ -365,42 +367,36 @@ void basic_spec2(){
             rep(bin,nbin){
                 if(Ctoge[j][bin])cmask[xfft][bin] = true;
             }
-            
+            TGraph* ggain1 = new TGraph;
+            TGraph* ggain2 = new TGraph;
             TGraph* gcold = new TGraph;
             TGraph* ghot = new TGraph;
             TGraph* gmirror = new TGraph;
-            TGraph* ggain = new TGraph;
-            TGraph* gsys = new TGraph;
-            TGraph* ddgcold = new TGraph;
-            TGraph* ddghot = new TGraph;
-            TGraph* ddgmirror = new TGraph;
-            TGraph* dgcold = new TGraph;
-            TGraph* dgmirror = new TGraph;
-            TGraph* pgraph = new TGraph;
+
+
+            int ogbin = 0;
             double gain,psys;
+            double gain1,gain2;
+            double ratio;
             double ptemp;
             prep(bin,sb,fb){
+                //if(Ctoge[j][bin])continue;
                 gcold -> SetPoint(bin-sb,Freq1[bin],Cold[bin]);
-                dgcold -> SetPoint(bin,bin,(Cold[bin]-Cold[bin-1])/Cold[bin]);
-                dgmirror -> SetPoint(bin,bin,(Mirror[bin]-Mirror[bin-1])/Mirror[bin]);
                 ghot -> SetPoint(bin-sb,Freq1[bin],Hot[bin]);
                 gmirror -> SetPoint(bin-sb,Freq1[bin],Mirror[bin]);
-                ddgcold -> SetPoint(bin,Freq1[bin],ddcold[bin]);
-                ddghot -> SetPoint(bin,bin,ddhot[bin]);
-                ddgmirror -> SetPoint(bin,Freq1[bin],ddmirror[bin]);
                 gain = (Hot[bin]-Cold[bin])/(2*kb*(Th-Tc)*df);
                 psys = (Cold[bin]/gain)-2*kb*Tc*df;
                 ptemp = (Mirror[bin]/gain-psys)/(2*kb*df);
-                ggain -> SetPoint(bin-sb,Freq1[bin],gain);
-                gsys -> SetPoint(bin-sb,Freq1[bin],psys);
-                pgraph -> SetPoint(bin-sb,Freq1[bin],ptemp);
+                gain1 = (hot1[bin]-cold1[bin])/(2*kb*(Th-Tc)*df);
+                gain2 = (hot2[bin]-cold2[bin])/(2*kb*(Th-Tc)*df);
+                ratio = abs(gain1-gain2)/(gain1+gain2);
+                if(rmax<ratio)rmax = ratio;
+                ggratio -> SetPoint(gbin,Freq1[bin],ratio);
+                gbin++;
             }
             axrange axsys = {fmin,fmax,0,pow(10,-14),0,1,";Freq[GHz];Psys[W]"};
-            st.Graph(pgraph,axtemp);
+            
             st.Graph(gcold,axraw);
-            st.Graph(ggain,axgain);
-            st.Graph(gsys,axsys);
-            c1 -> SetLogy();
             gcold -> SetLineColor(kBlue);
             ghot -> SetLineColor(kRed);
             gmirror -> SetLineColor(kGreen);
@@ -422,7 +418,7 @@ void basic_spec2(){
             //cout << ddcold[falchan-1024] << " " << ddhot[falchan-1024] << endl;
             //st.Graph(gcold,axraw);
             
-            //c1 -> SetLogy();
+            c1 -> SetLogy();
             
             TLegend *legend = new TLegend(0.7, 0.3, 0.85, 0.5);
             legend->AddEntry(gcold, "Cold", "l");
@@ -441,7 +437,10 @@ void basic_spec2(){
         }
         //legend -> Draw();
     }
-    
+    /*cout << "rmax: " << rmax << endl;
+    axrange axr = {215.8,264.2,0,1,0,1,";Freq[GHz];#DeltaG/G"};
+    st.Graph(ggratio,axr);
+    ggratio -> Draw("AP");*/
     
     
     

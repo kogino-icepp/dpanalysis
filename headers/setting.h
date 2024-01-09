@@ -36,7 +36,7 @@ public:
         graph -> GetXaxis() -> SetTitleSize(0.08);
         graph -> GetXaxis() -> SetTitleFont(42);
         graph -> GetXaxis() -> SetLabelFont(42);
-        graph -> GetYaxis() -> SetTitleOffset(0.9);
+        graph -> GetYaxis() -> SetTitleOffset(0.85);
         graph -> GetYaxis() -> SetLabelSize(0.065);
         graph -> GetYaxis() -> SetTitleSize(0.08);
         graph -> GetXaxis() -> SetNdivisions(505);
@@ -61,7 +61,7 @@ public:
         graph -> GetXaxis() -> SetTitleOffset(0.8);
         graph -> GetXaxis() -> SetTitleSize(0.075);
         graph -> GetXaxis() -> SetTitleFont(42);
-        graph -> GetYaxis() -> SetTitleOffset(0.9);
+        graph -> GetYaxis() -> SetTitleOffset(0.85);
         graph -> GetYaxis() -> SetLabelSize(0.08);
         graph -> GetYaxis() -> SetTitleSize(0.08);
         graph -> GetXaxis() -> SetNdivisions(304);
@@ -179,6 +179,7 @@ public:
         paveText -> AddText(Form(" Chi: %.4f", f -> GetChisquare()));
         paveText -> AddText(Form(" NDF: %d", f -> GetNDF()));
         paveText -> AddText(Form(" Error: %.4f",graph -> GetErrorY(0)));
+        
         paveText->Draw();
     }
     

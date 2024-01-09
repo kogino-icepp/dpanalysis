@@ -326,7 +326,7 @@ void gloGetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin])
         }
     }
     gsigma = sqrt(gsigma/(samplenum-1));
-    for(int bin=sb;bin<fb;bin++){
+    /*for(int bin=3580;bin<3581;bin++){
         if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF)continue;
         bool togemask = false;
         rep(ad,29){
@@ -387,11 +387,12 @@ void gloGetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin])
         double ndf = scalepeak -> GetNDF();
         spout *= yscale;
         sdpout *= yscale;
-        dlist[bin] = chi/ndf;
+        dlist[bin] = spout;
         deltaP[bin] = sdpout;
+        cout << spout << " +- " << sdpout << endl;
         //cout << "P/dP: " << spout/sdpout << endl;
-        //hist -> Fill(spout);*/
-    }
+        //hist -> Fill(spout);
+    }*/
     cout << "gsigma = " << gsigma << endl;
     return;
 }
@@ -514,9 +515,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         TGraphErrors* fitgraph = new TGraphErrors;
         TGraphErrors* fitgraph2 = new TGraphErrors;
         //パラメータ自体はscaleした後のデータを格納しているのでそのまま渡せばいいのでは？？
-        scalepeak -> SetParameter(0,vparas[0][bin]);
-        scalepeak -> SetParameter(1,vparas[1][bin]);
-        scalepeak -> SetParameter(2,vparas[2][bin]);
+        
         
         double a = peakquad -> GetParameter(0);
         double b = peakquad -> GetParameter(1);
@@ -531,9 +530,14 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
             }
         }
         //scalepeak -> SetParameter(4,1);
+        scalepeak -> SetParameter(0,vparas[0][bin]);
+        scalepeak -> SetParameter(1,vparas[1][bin]);
+        scalepeak -> SetParameter(2,vparas[2][bin]);
+       
         sigma /= 17;
         sigma = sqrt(sigma);
-        rep(k,dbin){
+        
+        /*rep(k,dbin){
             fitgraph -> SetPointError(k,0,sigma);
             spgraph -> SetPointError(k,0,sigma/yscale);
         }
@@ -561,8 +565,9 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         
         spgraph -> Fit(scalepeak,"EQ","",0,1);
         
-        //spgraph -> Draw("AP");
-        //scalepeak -> Draw("same");
+        spgraph -> Draw("AP");
+        scalepeak -> Draw("same");
+        cout << "Yes" << endl;
         //fitgraph -> Draw("AP");
         //peakquad -> Draw("same");
         
@@ -573,22 +578,25 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         double chi = scalepeak -> GetChisquare();
         double ndf = scalepeak -> GetNDF();
         spout *= yscale;
-        sdpout *= yscale;
-        dlist[bin] = chi/ndf;
-        deltaP[bin] = sdpout;
-        index++;
-        firsthist -> Fill(spout/(sdpout));
+        sdpout *= yscale;*/
+        dlist[bin] = sigma;
+        if(sigma>0.17)cout << "bin: " << bin << endl;
+        //deltaP[bin] = sdpout;
+        //cout << spout << " +- " << sdpout << endl;
+
+        
     }
+    //hist -> Fill(sigma);
     double fmin = 213.5+i*2;
     double fmax = 216.5+i*2;
-    TF1* fgaus = new TF1("fgaus","gaus");
-    firsthist -> Fit(fgaus);
-    st.Hist(firsthist);
-    TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-    c1 -> SetMargin(0.14,0.11,0.2,0.1);
+    //TF1* fgaus = new TF1("fgaus","gaus");
+    //firsthist -> Fit(fgaus);
+    //st.Hist(firsthist);
+    //TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+    //c1 -> SetMargin(0.14,0.11,0.2,0.1);
     //c1 -> SetLogy();
-    firsthist -> Draw();
-    double sigma = fgaus -> GetParameter("Sigma");
+    //firsthist -> Draw();
+    //double sigma = fgaus -> GetParameter("Sigma");
     
 }
 
@@ -605,7 +613,7 @@ void scale_peakfit(){
     st.color = kBlue;
     st.markerstyle = 20;
     for(int fn=1;fn<2;fn++){
-        axtest = {213.8+2*fn,216.2+2*fn,0,2,0,1,";Freq[GHz];ratio"};
+        axtest = {213.8+2*fn,216.2+2*fn,0,2,0,1,";Freq[GHz];Error[K]"};
         TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
         double deltaP[8][nbin];
         double pfitlist[8][nbin];
@@ -615,7 +623,7 @@ void scale_peakfit(){
             pfitlist[i][j] = DINF;
             gpfitlist[i][j] = DINF;
         }
-        string roofilename = "peakfitdata"+to_string(fn)+".root";
+        //string roofilename = "peakfitdata"+to_string(fn)+".root";
         //TFile * savefile = new TFile(roofilename.c_str(),"recreate");
         for(int j=0;j<1;j++){
             prep(p,1,2){
@@ -630,20 +638,33 @@ void scale_peakfit(){
                 TF1* fgaus = new TF1("fgaus","gaus",-10,10);
                 TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
                 c1 -> SetMargin(0.14,0.11,0.2,0.1);
+                
                 //fitterを毎回回さなくてもいいように確定版のデータでなくてもいいのでrootファイルを作成して保存しておきたい
                 GetDPfit(fn,j,p,testlist,testdeltaP,scalehist);
                 //c1 -> SetLogy();
                 //st.Hist(scalehist);
                 //scalehist -> Draw();
                 gloGetDPfit(fn,j,p,gtestlist,gtestdeltaP);
-                
-                prep(bin,sb,fb){
+                TGraph* rgraph = new TGraph;
+                int rbin = 0;
+                prep(bin,sb+1,fb){
+                    if(testlist[bin]==DINF)continue;
+                    double freq;
+                    //周波数の導出
+                    if(fn%2==1)freq = (213.8+fn*2)+0.0000762939*bin;
+                    else freq = (216.2+fn*2)-0.0000762939*bin;
+                    rgraph -> SetPoint(rbin,freq,testlist[bin]);
+                    rbin++;
                     pfitlist[2*j+(p-1)][bin] = testlist[bin];
                     deltaP[2*j+(p-1)][bin] = testdeltaP[bin];
                     gpfitlist[2*j+(p-1)][bin] = gtestlist[bin];
                     gdeltaP[2*j+(p-1)][bin] = gtestdeltaP[bin];
-                    cout << bin << " : "<< testlist[bin] << " <=>  " << testdeltaP[bin] << endl;
+                    
                 }
+                st.Graph(rgraph,axtest);
+                rgraph -> Draw("AP");
+                TF1* kijunf = new TF1("kijunf","0.0659",215.8,218.2);
+                kijunf -> Draw("same");
                 //このfor文内でコメントアウトするときにはここを使おう！*/
             }
         }

@@ -21,6 +21,9 @@ double eta2(double R){
 double dBmtomW(double dbm){
     return pow(10,(dbm)/10);
 }
+double dBmtouW(double dbm){
+    return pow(10,(dbm+30)/10);
+}
 double errdBmtomW(double dbm,double ddbm=0.01){
     //dBmの読み取り誤差が0.01dBmであると仮定、ダメなら適切に手で与える
     return ddbm*(dBmtomW(dbm)/10)*log(10);
@@ -39,6 +42,9 @@ double etar(double dz,double dr,double f){
     double delta = sqrt(((4*pow(w0,4))+(lambda*dz/PI)*(lambda*dz/PI))/(2*w0*w0));
     return etaz(dz,f)*exp(-2*(dr/delta)*(dr/delta));
 }
+double erruW(double uW,double ddbm=0.1){
+    return log(10)*uW*ddbm/10;
+}
 //角度がずれた時のカップリングの変化、
 double etaarg(double dz,double dphi,double f){
     double lambda = c/(f*pow(10,9));
@@ -54,12 +60,12 @@ double phidbm[12] = {-8.19,-7.67,-8.05,-7.22,-5.85,-5.60,-7.97,-6.30,-5.78,-5.84
 double phi[12] = {0,1.0/6,1.0/3,2.0/3,5.0/6,1.0,-1.0/6,-1.0/3,-0.5,-2.0/3,-5.0/6,-1};
 double theta[12] = {0,0.5,1,1.5,2,2.5,3,-0.5,-1,-1.5,-2,-2.5};
 
-double xW1[7] = {1.097,0.993,0.866,0.830,0.866,0.93,0.89};
-double xW2[8] = {66.0,65.0,65.5,65.3,66.2,67.3,68.4,70.1};
+double xuW1[7] = {109.7,99.3,86.6,83.0,86.6,93,89};
+double xuW2[8] = {66.0,65.0,65.5,65.3,66.2,67.3,68.4,70.1};
 double xpos1[7] = {0,2,4,6,8,10,12};
 double xpos2[8] = {6.4,6.0,5.5,5.0,4.5,7,7.5,8};
-double yW1[11] = {0.824,0.728,0.705,0.723,0.695,0.687,0.692,0.671,0.669,0.707,0.819};
-double yW2[9] = {0.655,0.657,0.652,0.658,0.66,0.671,0.683,0.72,0.757};
+double yuW1[11] = {82.4,72.8,70.5,72.3,69.5,68.7,69.2,67.1,66.9,70.7,81.9};
+double yuW2[9] = {65.5,65.7,65.2,65.8,66,67.1,68.3,72,75.7};
 double ypos1[11] = {21,19,17,15,13,11,9,7,5,3,1};
 double ypos2[9] = {7,7.5,8,8.5,9,6.5,6,5.5,5};
 
@@ -92,38 +98,45 @@ void coupling(){
     
     TGraphErrors* gmirrorx = new TGraphErrors;
     TGraphErrors* gmirrory = new TGraphErrors;
-    rep(i,11){
-        gthetaaline ->SetPoint(i,theta[i],dBmtomW(thetadbm[i]));
-        gphialine -> SetPoint(i,phi[i],dBmtomW(phidbm[i]));
+    rep(i,12){
+        gthetaaline ->SetPoint(i,theta[i],dBmtouW(thetadbm[i]));
+        //cout << theta[i] << " : " << dBmtouW(thetadbm[i]) << endl;
+        gthetaaline -> SetPointError(i,0.172,erruW(dBmtouW(thetadbm[i])));
+        gphialine -> SetPoint(i,phi[i],dBmtouW(phidbm[i]));
         gphialine -> SetPointError(i,0.172,errdBmtomW(phidbm[i]));
-        gxaline -> SetPoint(i,xpos1[i],xW1[i]);
-        gxaline -> SetPointError(i,0.01,0.05);
-        gyaline -> SetPoint(i,ypos1[i],yW1[i]);
-        gyaline -> SetPointError(i,0.01,0.01);
+        gxaline -> SetPoint(i,xpos1[i],xuW1[i]);
+        //cout << xpos1[i] << " : " << xuW1[i] << endl;
+        gxaline -> SetPointError(i,0.1,erruW(xuW1[i]));
+        gyaline -> SetPoint(i,ypos1[i],yuW1[i]);
+        gyaline -> SetPointError(i,0.1,erruW(yuW1[i]));
     }
     rep(i,20){
         gmirrorx -> SetPoint(i,xbpos[i],xbpower[i]);
         double xerr = xbpower[i]*log(10)/100;
         gmirrorx -> SetPointError(i,0,xerr);
         gmirrory -> SetPoint(i,ybpos[i],ybpower[i]);
-        cout << ybpos[i] << " " << ybpower[i] << endl;
+        //cout << ybpos[i] << " " << ybpower[i] << endl;
         double yerr = ybpower[i]*log(10)/100;
         gmirrory -> SetPointError(i,0,yerr);
     }
-    axrange ax = {0,22,0,1,0,1,";x[mm];Power[mW]"};
+    axrange ax = {-5,5,0,300,0,1,";#phi[#circ];Power[uW]"};
     TF1* fgaus = new TF1("fgaus","[0]*exp(-(x-[1])*(x-[1])/([2]*[2]))+[3]",0,22);
-    fgaus -> SetParameter(3,60);
-    fgaus -> SetParameter(2,100);
-    fgaus -> SetParameter(0,1);
-    fgaus -> SetParameter(1,500);
+    fgaus -> SetParameter(3,500);
+    fgaus -> SetParameter(2,1);
+    fgaus -> SetParameter(0,-1);
+    fgaus -> SetParameter(1,0);
     
+    st.GraphErrors(gxaline,ax);
     st.GraphErrors(gyaline,ax);
-    gyaline -> Draw("AP");
+    st.GraphErrors(gthetaaline,ax);
+    st.GraphErrors(gphialine,ax);
+    gphialine -> Draw("AP");
+    gphialine -> Fit(fgaus);
     //gyaline -> Fit(fgaus,"E");
-    axrange axg = {0,1000,0,200,0,1,";x[mm];Power[#mu W]"};
+    /*axrange axg = {0,1000,0,200,0,1,";x[mm];Power[#mu W]"};
     st.GraphErrors(gmirrorx,axg);
     st.GraphErrors(gmirrory,axg);
     gmirrory -> SetLineColor(kBlue);
     gmirrory -> Draw("AP");
-    gmirrory -> Fit(fgaus);
+    gmirrory -> Fit(fgaus);*/
 }
