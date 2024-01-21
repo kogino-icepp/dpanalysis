@@ -6,11 +6,11 @@ double omegay = 164.195*sqrt(2);
 double omegax0 = 2.82;//[mm]
 double omegay0 = 2.71;//[mm]
 double omegarec = 2.67;//[mm]
-double dx = 0.01;//[mm]
-double dy = 0.01;//[mm]
+double dx = 0.05;//[mm]
+double dy = 0.4;//[mm]
 double dz = 10.03;//[mm]
-double dtheta = 5.8*pow(10,-3);//[mrad]
-double dphi = 3*pow(10,-3);//[mrad]
+double dtheta = 1.2*pow(10,-3);//[mrad]
+double dphi = 0.5*pow(10,-3);//[mrad]
 double c = 3*pow(10,11);//[mm/s]
 //比で消える係数はガン無視で被積分部分のみを見る
 double Epower(double x,double y){

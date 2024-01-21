@@ -98,7 +98,7 @@ void coupling(){
     
     TGraphErrors* gmirrorx = new TGraphErrors;
     TGraphErrors* gmirrory = new TGraphErrors;
-    rep(i,12){
+    rep(i,11){
         gthetaaline ->SetPoint(i,theta[i],dBmtouW(thetadbm[i]));
         //cout << theta[i] << " : " << dBmtouW(thetadbm[i]) << endl;
         gthetaaline -> SetPointError(i,0.172,erruW(dBmtouW(thetadbm[i])));
@@ -119,19 +119,19 @@ void coupling(){
         double yerr = ybpower[i]*log(10)/100;
         gmirrory -> SetPointError(i,0,yerr);
     }
-    axrange ax = {-5,5,0,300,0,1,";#phi[#circ];Power[uW]"};
-    TF1* fgaus = new TF1("fgaus","[0]*exp(-(x-[1])*(x-[1])/([2]*[2]))+[3]",0,22);
-    fgaus -> SetParameter(3,500);
-    fgaus -> SetParameter(2,1);
-    fgaus -> SetParameter(0,-1);
-    fgaus -> SetParameter(1,0);
+    axrange ax = {0,20,0,300,0,1,";#phi[#circ];Power[uW]"};
+    TF1* fgaus = new TF1("fgaus","[0]*exp(-(x-[1])*(x-[1])/([2]*[2]))+[3]",0,15);
+    fgaus -> SetParameter(3,200);
+    fgaus -> SetParameter(2,4);
+    fgaus -> SetParameter(0,-10);
+    fgaus -> SetParameter(1,6);
     
     st.GraphErrors(gxaline,ax);
     st.GraphErrors(gyaline,ax);
     st.GraphErrors(gthetaaline,ax);
     st.GraphErrors(gphialine,ax);
-    gphialine -> Draw("AP");
-    gphialine -> Fit(fgaus);
+    gxaline -> Draw("AP");
+    gxaline -> Fit(fgaus);
     //gyaline -> Fit(fgaus,"E");
     /*axrange axg = {0,1000,0,200,0,1,";x[mm];Power[#mu W]"};
     st.GraphErrors(gmirrorx,axg);

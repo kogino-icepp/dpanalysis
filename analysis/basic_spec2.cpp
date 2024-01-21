@@ -45,6 +45,21 @@ const double kb=1.38*pow(10,-23);
 const double df=88.5*pow(10,3);
 const double Tc=76;
 const double Th=297;
+const double DINF=1e9;
+pair<double,double> MeanError(vector<double>data){
+    double mean = 0;
+    double num = 0;
+    for(auto v:data){
+        mean += v;
+        num++;
+    }
+    if(num==0)return {mean,0};
+    mean /= num;
+    double rtn = 0;
+    for(auto v:data)rtn += (mean-v)*(mean-v);
+    rtn = sqrt(rtn/(num));
+    return {mean,rtn};
+}
 double v_conv(double f,double f0){
     double rtn=c*sqrt(1-((f0/f)*(f0/f)));
     return rtn;
@@ -118,6 +133,7 @@ void toge_scan2(bool (&hantei)[nbin],double input[nbin],double &sigma,double (&t
     uniform_int_distribution<> rand1000(0, 9999);  
     string hname = "hist"+to_string(rand1000(mt));
     TH1D* hist = new TH1D(hname.c_str(),"hist;ddinput;Count",100,-0.002,0.002);
+    //TH1D* normhist = new TH1D("normhist",";ddCold/Cold;Count",100,-1000,1000);
     TF1* f = new TF1("gaus","gaus",-0.002,0.002);
     double binput = input[sb-1];
     double bbinput = input[sb-2];
@@ -131,19 +147,24 @@ void toge_scan2(bool (&hantei)[nbin],double input[nbin],double &sigma,double (&t
         bbinput = binput;
         binput = input[bin];
     }
-    
-    //hist -> Draw();
     hist -> Fit(f,"QEN","",-0.005,0.005);
-    //st.Hist(hist);
+    
     sigma = f -> GetParameter("Sigma");
     int num = 0;
+    //ここプロットしてみる？
     for(int bin=sb;bin<fb;bin++){
-        if(abs(togevalue[bin])>5*sigma)hantei[bin] = true;
+        if(abs(togevalue[bin])>5*sigma){
+            hantei[bin-1] = true;
+            
+        }
+        //if(bin>7190 && bin<7205)cout << bin << " : " << togevalue[bin]/sigma << endl;
         tvalue[bin] = togevalue[bin]/sigma;
+        //normhist -> Fill(tvalue[bin]);
         num++;
     }
-    
-    //normhist -> Fit("gaus","Q");
+    /*st.Hist(normhist);
+    normhist -> Draw();
+    normhist -> Fit("gaus","Q");*/
 }
 void toge_value(double input[nbin],double (&output)[nbin],double sigma){
     double binput = input[sb-1];
@@ -203,6 +224,7 @@ void basic_spec2(){
 
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.15,0.1,0.2,0.1);
+    //c1 -> SetLogy();
     
     /*c1 -> Divide(1,2);
     c1 -> cd(1);*/
@@ -251,7 +273,11 @@ void basic_spec2(){
     TGraph* ggratio = new TGraph;
     int gbin = 0;
     double rmax = 0;
-    for(int i=16;i<17;i++){
+    TGraph* pgraph0 = new TGraph;
+    TGraph* pgraph1 = new TGraph;
+    TGraph* pgraph2 = new TGraph;
+    TGraph* pgraph3 = new TGraph;
+    for(int i=8;i<9;i++){
         TLegend *legend = new TLegend(0.65, 0.65, 0.85, 0.85); 
         double fmin = 213.5+i*2;
         double fmax = 216.5+i*2;
@@ -277,6 +303,8 @@ void basic_spec2(){
                 Mtoge[j][k] = false;
             }
         }
+        double Ptemplist[4][nbin];
+        rep(j,4)rep(bin,nbin)Ptemplist[j][bin] = DINF;
         for(int j=0;j<1;j++){
             //cout << j << endl;
             filesystem::current_path(cdir);
@@ -349,13 +377,14 @@ void basic_spec2(){
                 Hot[bin] = (hot1[bin] + hot2[bin])/2;
                 Mirror[bin] = (mirror1[bin] + mirror2[bin])/2;
             }
+            
             int outbin = sb;
             if(xfft%2==1)outbin += sbin[j];
             else outbin -= sbin[j];
             //cout << Freq1[outbin] << " ";
             //テスト関数(デルタ関数とシグナル)を用意してヒストグラム化,FFTで変換してその物性を確かめる
             axrange axtemp = {fmin,fmax,0,100,0,1,";Freq[GHz];Prec[K]"};
-            axrange axgain = {fmin,fmax,0,pow(10,31),0,1,";Freq[GHz];Prec[K]"};
+            axrange axgain = {fmin,fmax,0,pow(10,31),0,1,";Freq[GHz];Gain[a.u]"};
             axrange axdd = {fmin,fmax,-10,10,0,1,"ddmirror;bin;sigma"};
             axrange axraw = {fmin,fmax,0,pow(10,16),0,1,"Spectrum;Freq[GHz];Spectrum[a.u]"};
             axrange axd = {12439,12469,0,pow(10,16),0,1,"dcold;Bin;dcold[a.u]"};
@@ -369,14 +398,18 @@ void basic_spec2(){
             }
             TGraph* ggain1 = new TGraph;
             TGraph* ggain2 = new TGraph;
+            TGraph* ggain = new TGraph;
             TGraph* gcold = new TGraph;
             TGraph* ghot = new TGraph;
             TGraph* gmirror = new TGraph;
-
-
+            TGraph* pgraph = new TGraph;
+            TGraph* sysgraph = new TGraph;
+            TGraph* tgcold = new TGraph;//棘部分を赤く塗るためだけのコード
+            int tbin = 0;
             int ogbin = 0;
             double gain,psys;
             double gain1,gain2;
+            double sys1,sys2;
             double ratio;
             double ptemp;
             prep(bin,sb,fb){
@@ -385,47 +418,66 @@ void basic_spec2(){
                 ghot -> SetPoint(bin-sb,Freq1[bin],Hot[bin]);
                 gmirror -> SetPoint(bin-sb,Freq1[bin],Mirror[bin]);
                 gain = (Hot[bin]-Cold[bin])/(2*kb*(Th-Tc)*df);
+                
                 psys = (Cold[bin]/gain)-2*kb*Tc*df;
                 ptemp = (Mirror[bin]/gain-psys)/(2*kb*df);
                 gain1 = (hot1[bin]-cold1[bin])/(2*kb*(Th-Tc)*df);
                 gain2 = (hot2[bin]-cold2[bin])/(2*kb*(Th-Tc)*df);
+                sys1 = (cold1[bin]/gain1)-2*kb*Tc*df;
+                ggain -> SetPoint(bin-sb,Freq1[bin],gain);
+                sysgraph -> SetPoint(bin-sb,Freq1[bin],sys1);
                 ratio = abs(gain1-gain2)/(gain1+gain2);
                 if(rmax<ratio)rmax = ratio;
                 ggratio -> SetPoint(gbin,Freq1[bin],ratio);
+                pgraph -> SetPoint(bin-sb,Freq1[bin],ptemp);
+                Ptemplist[j][bin+sbin[j]] = ptemp;
                 gbin++;
+                if(Ctoge[j][bin]){
+                    tgcold -> SetPoint(tbin,Freq1[bin],Cold[bin]);
+                    tbin++;
+                    cout << bin << " --------------" << endl;
+                    cout << Freq1[bin] << " : " << ddcold[bin+1] << endl;
+
+                }
             }
             axrange axsys = {fmin,fmax,0,pow(10,-14),0,1,";Freq[GHz];Psys[W]"};
             
             st.Graph(gcold,axraw);
+            st.Graph(gmirror,axraw);
+            st.Graph(ghot,axraw);
+            st.Graph(ggain,axgain);
+            st.Graph(sysgraph,axsys);
+            st.Graph(pgraph,axtemp);
             gcold -> SetLineColor(kBlue);
-            ghot -> SetLineColor(kRed);
-            gmirror -> SetLineColor(kGreen);
-            gcold -> Draw("AL");
-            ghot -> Draw("L");
-            gmirror -> Draw("L");
+            ghot -> SetMarkerColor(kRed);
+            gmirror -> SetMarkerColor(kGreen);
+            pgraph -> SetLineColor(gColor[j]);
+            ggain -> SetLineColor(kBlue);
+            gcold -> Draw("AP");
+            st.Graph(tgcold,axraw);
+            tgcold -> SetMarkerColor(kRed);
+            tgcold -> Draw("P");
+            //if(j==0)pgraph -> Draw("AL");
+            //else pgraph -> Draw("L");
+            //gcold -> Draw("AP");
+            //ghot -> Draw("L");
+            //gmirror -> Draw("L");
             //ggain -> Draw("AL");
             //string lname = to_string(sbin[j]*76.2939453125*0.001)+"MHz";
             //legend->AddEntry(gcold, lname.c_str(), "l");
             //pgraph -> SetLineColor(gColor[j]);
             //ggain -> SetMarkerColor(kBlack);
             //ggain -> Draw("AP");
-            /*if(j==0){
-                pgraph -> Draw("AL");
-            }
-            else pgraph -> Draw("L");*/
+            
             //cout << Freq1[18596]  << " : " << Freq1[22258] <<endl; 
             //怪しいチャンネルがどこで反応しているのか、何点反応しているのかなどを確かめる
             //cout << ddcold[falchan-1024] << " " << ddhot[falchan-1024] << endl;
             //st.Graph(gcold,axraw);
             
-            c1 -> SetLogy();
+            //c1 -> SetLogy();
             
-            TLegend *legend = new TLegend(0.7, 0.3, 0.85, 0.5);
-            legend->AddEntry(gcold, "Cold", "l");
-            legend->AddEntry(ghot, "Hot", "l");
-            legend->AddEntry(gmirror, "Mirror", "l"); 
-            legend->SetBorderSize(0); // 凡例のボーダーを非表示に
-            legend->Draw();
+            
+            //legend->Draw();
             //axrange axg = {fmin,fmax,0,pow(10,31),0,1,"Gain;Freq[GHz];Gain[a.u]"};
             //axrange axsys = {fmin,fmax,0,pow(10,-15),0,1,"Psys;Freq[GHz];Psys[W]"};
             //st.Graph(ggain,axg);
@@ -435,41 +487,30 @@ void basic_spec2(){
             //ghot -> Draw("L");*/
             
         }
+        // axrange axtave = {215.8,218.2,0,100,0,1,";Freq[GHz];#DeltaPrec[K]"};
+        // TGraphErrors* pavegraph = new TGraphErrors;
+        // int abin = 0;
+        // rep(bin,nbin){
+        //     vector<double> pvec;
+        //     rep(j,4){
+        //         if(Ptemplist[j][bin]==DINF)continue;
+        //         pvec.push_back(Ptemplist[j][bin]);
+        //     }
+        //     if(pvec.size()==0)continue;
+        //     pair<double,double> res = MeanError(pvec);
+        //     double freq = (213.8+1*2)+0.0000762939*bin;
+        //     pavegraph -> SetPoint(abin,freq,res.second);
+        //     pavegraph -> SetPointError(abin,0,0);
+        //     abin++;
+        // }
+        // st.GraphErrors(pavegraph,axtave);
+        // pavegraph -> Draw("AP");
         //legend -> Draw();
+        /*TLegend *legend = new TLegend(0.7, 0.3, 0.85, 0.5);
+        legend->AddEntry(gcold, "Cold", "l");
+        legend->AddEntry(ghot, "Hot", "l");
+        legend->AddEntry(gmirror, "Mirror", "l"); 
+        legend->SetBorderSize(0); // 凡例のボーダーを非表示に*/
     }
-    /*cout << "rmax: " << rmax << endl;
-    axrange axr = {215.8,264.2,0,1,0,1,";Freq[GHz];#DeltaG/G"};
-    st.Graph(ggratio,axr);
-    ggratio -> Draw("AP");*/
     
-    
-    
-    /*rep(xfft,4){
-        int xoutnum = 0;
-        cout << xfftname[xfft] << ": " << endl;
-        prep(bin,sb,fb-30){
-            //if(cmask[xfft][bin])cout << bin << " " ;
-            //4種類のLOでずらしていくとスキャンできない点が何点あるかを見てみる
-            bool hantei = false;
-            rep(dd,30){
-                bool phantei = true;
-                if(xfft%2==1){
-                    rep(ite,4){
-                        if(!cmask[xfft][bin+dd+sbin[ite]])phantei = false;
-                    }
-                }
-                else{
-                    rep(ite,4){
-                        if(!cmask[xfft][bin+dd-sbin[ite]])phantei = false;
-                    }
-                }
-                if(phantei){
-                    hantei = true;
-                    break;
-                }
-            }
-            if(hantei)xoutnum++;
-        }
-        cout << xoutnum << endl;
-    }*/
 }

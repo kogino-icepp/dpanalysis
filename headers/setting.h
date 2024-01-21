@@ -31,7 +31,7 @@ public:
         graph -> SetMaximum(ax.ymax);
         graph -> SetMinimum(ax.ymin);
         graph -> GetXaxis() -> SetLimits(ax.xmin,ax.xmax);
-        graph -> GetXaxis() -> SetLabelSize(0.065);
+        graph -> GetXaxis() -> SetLabelSize(0.07);
         graph -> GetXaxis() -> SetTitleOffset(0.9);
         graph -> GetXaxis() -> SetTitleSize(0.08);
         graph -> GetXaxis() -> SetTitleFont(42);

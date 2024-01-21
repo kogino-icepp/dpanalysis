@@ -46,6 +46,7 @@ double wsigma[4] = {0.066,0.066,0.066,0.066};
 //前もって隠しておく
 
 //フィットに使う諸々の関数群
+//k:自由度、p1:横軸のスケール因子、p0:規格化定数
 Double_t chiF_free(double x,double p0,double k,double p1){
     return p0*TMath::Gamma(k/2,x/(2*p1));
 }
@@ -167,7 +168,7 @@ void ChiCheck2(int i,int j,int p,TH1D*hist){
         vparas[2][bin]=c;
         vpfreq[bin]=freq;
         if(chi==DINF)continue;
-        hist -> Fill(chi);
+        if(bin%30==0)hist -> Fill(chi);
         
     }
 }
@@ -326,7 +327,8 @@ void gloGetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin])
         }
     }
     gsigma = sqrt(gsigma/(samplenum-1));
-    /*for(int bin=3580;bin<3581;bin++){
+    cout << "gsigma : " << gsigma << endl;
+    /*for(int bin=sb;bin<fb;bin++){
         if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF)continue;
         bool togemask = false;
         rep(ad,29){
@@ -372,12 +374,12 @@ void gloGetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin])
         double smfreq = spgraph -> GetPointX(bpos);
         peakquad -> FixParameter(3,mfreq);
         scalepeak -> FixParameter(4,sfreq);
-        rep(ite,10)spgraph -> Fit(scalepeak,"Q0","",0,1);
-        rep(ite,10)spgraph -> Fit(scalepeak,"MQ0","",0,1);
+        rep(ite,1000)spgraph -> Fit(scalepeak,"Q0","",0,1);
+        rep(ite,1000)spgraph -> Fit(scalepeak,"MQ0","",0,1);
         
         //フィットがある程度収束するまでこれ続ける
         //fitgraph -> Fit(peakquad,"EQ","",sfreq,ffreq);
-        spgraph -> Fit(scalepeak,"EQ","",0,1);
+        rep(ite,10)spgraph -> Fit(scalepeak,"EQ","",0,1);
         st.GraphErrors(spgraph,axscale);
         spgraph -> Draw("AP");
 
@@ -389,11 +391,11 @@ void gloGetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin])
         sdpout *= yscale;
         dlist[bin] = spout;
         deltaP[bin] = sdpout;
-        cout << spout << " +- " << sdpout << endl;
+        //cout << spout << " +- " << sdpout << endl;
         //cout << "P/dP: " << spout/sdpout << endl;
         //hist -> Fill(spout);
     }*/
-    cout << "gsigma = " << gsigma << endl;
+    //cout << "gsigma = " << gsigma << endl;
     return;
 }
 //scaleした後のフィット結果を元の値に復元する、できるかな？
@@ -460,8 +462,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
     //vectorにとりあえずのフィット結果を詰める
     //どこかにグローバルなエラーと局所的なエラーを両方出すプログラムが欲しい
     int xfft = XFFT(i);
-    int outbin[10];
-    int outindex = 0;
+    
     
     int bin95 = 0;
     int index = 0;
@@ -474,7 +475,9 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
     ・注意事項：rootファイルを開いた状態で別のアレを開くとアレするらしいので競合しないように適宜closeしたり順番を工夫する
     ・
     */
-    for(int bin=sb;bin<fb;bin++){
+    int outbin[10];
+    int obin = 0;
+    for(int bin=23234;bin<23235;bin++){
         if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF){
             continue;
         }
@@ -486,6 +489,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
             }
         }
         if(togemask)continue;
+        
         double sfreq,ffreq,mfreq;
         int bpos;
         if(i%2==1){
@@ -533,11 +537,13 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         scalepeak -> SetParameter(0,vparas[0][bin]);
         scalepeak -> SetParameter(1,vparas[1][bin]);
         scalepeak -> SetParameter(2,vparas[2][bin]);
-       
         sigma /= 17;
         sigma = sqrt(sigma);
-        
-        /*rep(k,dbin){
+        cout << sigma << endl;
+        deltaP[bin] = sigma;
+        //sigma = 0.0659489;
+        //cout << "sigma: " << sigma << endl;
+        rep(k,dbin){
             fitgraph -> SetPointError(k,0,sigma);
             spgraph -> SetPointError(k,0,sigma/yscale);
         }
@@ -563,11 +569,11 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         //フィットがある程度収束するまでこれ続ける
         //fitgraph -> Fit(peakquad,"EQ","",sfreq,ffreq);
         
-        spgraph -> Fit(scalepeak,"EQ","",0,1);
+        rep(ite,1)spgraph -> Fit(scalepeak,"EQ","",0,1);
         
         spgraph -> Draw("AP");
         scalepeak -> Draw("same");
-        cout << "Yes" << endl;
+        
         //fitgraph -> Draw("AP");
         //peakquad -> Draw("same");
         
@@ -578,15 +584,25 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         double chi = scalepeak -> GetChisquare();
         double ndf = scalepeak -> GetNDF();
         spout *= yscale;
-        sdpout *= yscale;*/
-        dlist[bin] = sigma;
-        if(sigma>0.17)cout << "bin: " << bin << endl;
+        sdpout *= yscale;
+        dlist[bin] = spout;
+        hist -> Fill(chi/ndf/1.13);
+        cout << spout << " +- " << sdpout << endl;
+        if(abs(spout/sdpout)>5){
+            outbin[obin] = bin;
+            obin++;
+        }
+        cout << "chi2/ndf: " << chi/ndf << endl;
+        //if(sigma>0.17)cout << "bin: " << bin << endl;
         //deltaP[bin] = sdpout;
-        //cout << spout << " +- " << sdpout << endl;
+        //cout << spout << " +- " << sdpout << endl;*/
 
         
     }
     //hist -> Fill(sigma);
+    /*rep(k,1){
+        cout << outbin[k] << endl;
+    }*/
     double fmin = 213.5+i*2;
     double fmax = 216.5+i*2;
     //TF1* fgaus = new TF1("fgaus","gaus");
@@ -603,7 +619,9 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
 
 //これがメイン関数
 void scale_peakfit(){
-    //まずはそれぞれ別々の情報が詰められているか確認する
+    TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+    c1 -> SetMargin(0.14,0.11,0.2,0.1);
+    //c1 -> SetLogy();
     double maxbin = 0.5;
     string whitedir = "/Users/oginokyousuke/data/white_noise";
     vector<int> excess;
@@ -612,7 +630,20 @@ void scale_peakfit(){
     st.dot_size = 0.5;
     st.color = kBlue;
     st.markerstyle = 20;
-    for(int fn=1;fn<2;fn++){
+    // TH1D* chihist = new TH1D("chihist",";#chi^{2}/NDF;Count",100,0,5);
+    // ChiCheck2(6,0,1,chihist);
+    // st.Hist(chihist);
+    // chihist -> Draw();
+    // TF1* chif = new TF1("chif","chiF_freefit(x,[0],[1],17,0.05)",0,5);
+    // double p0 = chihist -> GetEntries();
+    // double p1 = 0.1;
+    // chif -> FixParameter(0,p0*0.9);
+    // chif -> SetParameter(1,p1);
+    // chihist -> Fit(chif);
+    // double chi2 = chif -> GetChisquare();
+    // double ndf = chif -> GetNDF();
+    // cout << "chi/ndf: " << chi2/ndf << endl;
+    for(int fn=12;fn<13;fn++){
         axtest = {213.8+2*fn,216.2+2*fn,0,2,0,1,";Freq[GHz];Error[K]"};
         TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
         double deltaP[8][nbin];
@@ -625,26 +656,54 @@ void scale_peakfit(){
         }
         //string roofilename = "peakfitdata"+to_string(fn)+".root";
         //TFile * savefile = new TFile(roofilename.c_str(),"recreate");
-        for(int j=0;j<1;j++){
+        for(int j=2;j<3;j++){
             prep(p,1,2){
                 double testlist[nbin];
                 double testdeltaP[nbin];
                 double gtestlist[nbin];
                 double gtestdeltaP[nbin];
-                rep(bin,nbin)testlist[bin] = DINF;
+                rep(bin,nbin){
+                    testlist[bin] = DINF;
+                    testdeltaP[bin] = DINF;
+                }
                 TH1D* whitehist1 = new TH1D("whitehist1",";P_{fit}[kHz*W];Count",100,-1,1);
                 TH1D* whitehist2 = new TH1D("whitehist2",";P_{fit}[kHz*W];Count",100,-1,1);
                 TH1D* scalehist = new TH1D("scalehist",";P_{fit}/#Delta P_{fit};Count",100,-10,10);
                 TF1* fgaus = new TF1("fgaus","gaus",-10,10);
-                TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-                c1 -> SetMargin(0.14,0.11,0.2,0.1);
+                
                 
                 //fitterを毎回回さなくてもいいように確定版のデータでなくてもいいのでrootファイルを作成して保存しておきたい
-                GetDPfit(fn,j,p,testlist,testdeltaP,scalehist);
-                //c1 -> SetLogy();
-                //st.Hist(scalehist);
-                //scalehist -> Draw();
-                gloGetDPfit(fn,j,p,gtestlist,gtestdeltaP);
+                GetDPfit(fn,j,p,testlist,testdeltaP,chihist);
+                /*gloGetDPfit(fn,j,p,gtestlist,gtestdeltaP);
+                TGraph* egraph = new TGraph;
+                int ebin = 0;
+                prep(bin,sb,fb){
+                    if(testdeltaP[bin]==DINF)continue;
+                    double freq;
+                    if(fn%2==1)freq = (213.8+fn*2)+0.0000762939*bin;
+                    else freq = (216.2+fn*2)-0.0000762939*bin;
+                    egraph -> SetPoint(ebin,freq,testdeltaP[bin]);
+                    ebin++;
+                }
+                axrange axe = {213.8+fn*2,216.2+fn*2,0,1,0,1,";Freq[GHz];Error[K]"};
+
+                st.Graph(egraph,axe);
+                egraph -> Draw("AP");
+                TF1* glof = new TF1("glof","0.0733",228,230);
+                glof -> SetLineWidth(4);
+                glof -> Draw("same");
+                c1 -> SetLogy();
+                st.Hist(chihist);
+                chihist -> Draw();
+                TF1* chif = new TF1("chif","chiF_freefit(x,[0],[1],26,0.05)",0,5);
+                double p0 = chihist -> GetEntries();
+                double p1 = 0.0385;
+                chif -> FixParameter(0,p0*0.9);
+                chif -> FixParameter(1,p1);
+                chif -> Draw("same");
+                //chihist -> Fit(chif);
+                //
+                
                 TGraph* rgraph = new TGraph;
                 int rbin = 0;
                 prep(bin,sb+1,fb){
@@ -653,13 +712,8 @@ void scale_peakfit(){
                     //周波数の導出
                     if(fn%2==1)freq = (213.8+fn*2)+0.0000762939*bin;
                     else freq = (216.2+fn*2)-0.0000762939*bin;
-                    rgraph -> SetPoint(rbin,freq,testlist[bin]);
+                    rgraph -> SetPoint(rbin,freq,testlist[bin]/gtestlist[bin]);
                     rbin++;
-                    pfitlist[2*j+(p-1)][bin] = testlist[bin];
-                    deltaP[2*j+(p-1)][bin] = testdeltaP[bin];
-                    gpfitlist[2*j+(p-1)][bin] = gtestlist[bin];
-                    gdeltaP[2*j+(p-1)][bin] = gtestdeltaP[bin];
-                    
                 }
                 st.Graph(rgraph,axtest);
                 rgraph -> Draw("AP");

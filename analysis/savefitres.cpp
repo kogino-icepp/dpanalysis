@@ -174,6 +174,7 @@ double Freq(int i,int bin){
     if(i%2==1)return (213.8+i*2)+0.0000762939*bin;
     else return (216.2+i*2)-0.0000762939*bin;
 }
+
 void ChiCheck2(int i,int j,int p,TH1D*hist){
     int xfft = XFFT(i);
     Mask ms;
@@ -736,11 +737,14 @@ void ReadGfile(int i,double (&pfitlist)[8][nbin],double (&deltaP)[8][nbin]){
 void P_dP(){
     //ここを任意の区間まで拡張して書きたい(多分大丈夫、知らんけど何処かで誤魔化す)
     TGraphErrors* graph = new TGraphErrors;//描画グラフ
+    TGraphErrors* sgraph = new TGraphErrors;//描画グラフ
     int pbin = 0;
     axrange axall = {215.8,264.2,-10,10,0,1,";Freq[GHz];P_{fit}/#DeltaP_{fit}"};
+    axrange axsig = {215.8,264.2,0,2,0,1,";Freq[GHz];Sigma"};
     int si = 1;
     int fi = 25;
     prep(i,si,fi){
+        TH1D* nhist = new TH1D("nhist",";P_{fit}/#DeltaP_{fit};Count",100,-10,10);
         cout << "band" << i << endl;
         int xfft = XFFT(i);
         double pfitlist[8][nbin],deltaP[8][nbin];
@@ -756,10 +760,10 @@ void P_dP(){
                 int j = ite/2;
                 if(pfitlist[ite][bin+shift[j]]==DINF)continue;
                 num++;
-                list.push_back(pfitlist[ite][bin+shift[j]]/(deltaP[ite][bin+shift[j]]*hosei[i][ite]));
+                list.push_back(pfitlist[ite][bin+shift[j]]/(deltaP[ite][bin+shift[j]]*hosei[i-1][ite]));
                 //cout << pfitlist[ite][bin+shift[j]] << endl;
             }
-            if(num==0)continue;
+            //if(num==0)continue;
             double prave,prerr;
             prave = MeanError(list).first;
             prerr = MeanError(list).second;
@@ -768,7 +772,7 @@ void P_dP(){
             if(i%2==1)freq = (213.8+i*2)+0.0000762939*bin;
             else freq = (216.2+i*2)-0.0000762939*bin;
             graph -> SetPoint(pbin,freq,prave);
-            
+            nhist -> Fill(prave*sqrt(list.size()));
             graph -> SetPointError(pbin,0,prerr);
             /*if(prave+prerr>5 || prave-prerr<-5){
                 cout << "num ->" << num << endl;
@@ -776,25 +780,67 @@ void P_dP(){
             }*/
             pbin++;
         }
-        
+        st.dot_size = 0.6;
+        st.lcolor = kBlue;
+        st.color = kBlue;
+        st.markerstyle = 20;
+        st.GraphErrors(graph,axall);
+        graph -> Draw("AP");
+        st.Hist(nhist);
+        nhist -> Draw();
+        TF1* fgaus = new TF1("fgaus","[0]*exp(-(x-[1])*(x-[1])/(2*[2]*[2]))",-10,10);
+        fgaus -> SetParameter(0,20000);
+        fgaus -> SetParameter(1,0);
+        fgaus -> SetParameter(2,1);
+
+        nhist -> Fit(fgaus,"Q","",-10,10);
+        double sigma = fgaus -> GetParameter(2);
+        double dsigma = fgaus -> GetParError(2);
+        sgraph -> SetPoint(i,215+2*i,sigma);
+        sgraph -> SetPointError(i,0,dsigma);
+        if(i==24)sgraph -> SetPointError(i,0,0.005);
     }
-    st.dot_size = 0.6;
-    st.lcolor = kBlue;
+    st.dot_size = 0.7;
     st.color = kBlue;
     st.markerstyle = 20;
-    st.GraphErrors(graph,axall);
-    graph -> Draw("AP");
+    st.GraphErrors(sgraph,axsig);
+    sgraph -> Draw("AP");
+
+}
+void DrawPower(TH1D* hist){
+    //ヒストグラムに詰めてどのくらいのパワーレベルになったか検証する
+    double pfitlist[8][nbin],deltaP[8][nbin];
+    rep(bin,nbin)pfitlist[0][bin] = DINF;
+    ReadFile(1,pfitlist,deltaP);
+    prep(bin,sb,fb){
+        if(pfitlist[0][bin]==DINF)continue;
+        double pw = pfitlist[0][bin]*2*kb*df;
+        hist -> Fill(pw);
+    }
 }
 //一旦bandごとにdrawできるプログラムを書く
 void DrawLimit(){
-    TGraph* chigraph = new TGraph;//カイ二乗分布
+    TGraph* chigraph = new TGraph;//limitのグラフ
     TGraph* chinarrow = new TGraph;
-    axrange axall = {10,10000,0,1*pow(10,-9),0,1,";Freq[GHz];coupling constant #chi"};
+    TH1D* whitehist = new TH1D("whitehist",";Freq[GHz];#chi",627378,216,264);
+    //axrange axall = {216,264,0,1,0,1,";Freq[GHz];coupling constant #chi"};
+    axrange axall = {0,pow(10,5),0,pow(10,-8),0,1,";Freq[GHz];#DeltaP_{fit}[K]"};
     int chibin = 0;
     int chinbin = 0;
+    
+    TH1D* ehist = new TH1D("ehist",";#DeltaP_{fit}[K];Count",100,0.05,0.2);
+    double xmin = 1000;
+    double ymin = 1000;
+    double xmax = -1;
+    double ymax = 0;
     prep(i,1,25){
         double pfitlist[8][nbin],deltaP[8][nbin];
-        rep(ite,8)rep(bin,nbin)pfitlist[ite][bin] = DINF;
+        double gpfitlist[8][nbin],gdeltaP[8][nbin];
+        rep(ite,8)rep(bin,nbin){
+            pfitlist[ite][bin] = DINF;
+            gpfitlist[ite][bin] = DINF;
+        }
+        //ReadFile(i,pfitlist,deltaP);
         ReadFile(i,pfitlist,deltaP);
         int xfft = XFFT(i);
         int shift[4];
@@ -802,25 +848,33 @@ void DrawLimit(){
         else shift[0] = 0,shift[1]=-512,shift[2]=512,shift[3]=1024;
         vector<pair<double,double>> res;
         vector<pair<double,double>> resn;
+        vector<pair<double,double>> resg;
         prep(bin,sb+40,fb-40){
             int num = 0;
             vector<double> pvec;
             vector<double> evec;
+            vector<double> gpvec;
+            vector<double> gevec;
             rep(ite,8){
                 int j = ite/2;
                 if(pfitlist[ite][bin+shift[j]]==DINF)continue;
                 if(deltaP[ite][bin+shift[j]]>1)continue;
                 num++;
-                //if(bin==23746)cout << pfitlist[ite][bin+shift[j]] << " +- " << deltaP[ite][bin+shift[j]] << endl;
+                
                 pvec.push_back(pfitlist[ite][bin+shift[j]]);
                 evec.push_back(deltaP[ite][bin+shift[j]]);
+                //gpvec.push_back(gpfitlist[ite][bin+shift[j]]);
+                //gevec.push_back(gdeltaP[ite][bin+shift[j]]);
                 //cout << pfitlist[ite][bin+shift[j]] << endl;
             }
             if(num==0)continue;
             //今回はpfitの平均値とdeltaPfitの平均値をそれぞれ値として使っているが本当にそれでいいのか？
             double pave,errave;
+            double gpave,gerrave;
             pave = MeanError(pvec).first;
             errave = MeanError(evec).first;
+            //gpave = MeanError(gpvec).first;
+            //gerrave = MeanError(gevec).first;
             double freq;
             //周波数の導出
             if(i%2==1)freq = (213.8+i*2)+0.0000762939*bin;
@@ -829,35 +883,35 @@ void DrawLimit(){
             //もし横軸を周波数ではなくてmassにしたい場合はこのコメントアウトを外す
             freq = FtoMass(freq);*/
             res.push_back({(freq),PtoChi(P95(pave,errave))});
-            resn.push_back({(freq),PtoChi(P95narrow(pave,errave))});
-            // if(P95(pave,errave)>3*pow(10,-18)){
-            //     cout << bin << " : " << pave << " +- " << errave << endl;
-            // }
-            
+            //if(PtoChi(P95(pave,errave))>7*pow(10,-11))cout << pave << " " << errave << " " << freq << " <=> " << PtoChi(P95(pave,errave)) << " "  << bin << endl;
+            //res.push_back({(freq),errave});
         }
         sort(res.begin(),res.end());
-        sort(resn.begin(),resn.end());
+        //sort(resg.begin(),resg.end());
         for(auto v:res){
-            if(v.second>pow(10,-10))continue;
+            //if(v.second>pow(10,-10))continue;
+            if(v.second>0.16)continue;
             chigraph -> SetPoint(chibin,v.first,v.second);
-            //cout << v.first << " " << v.second << endl;
+            if(xmin>v.first)xmin = v.first;
+            if(ymin>v.second)ymin = v.second;
+            if(xmax<v.first)xmax = v.first;
+            if(ymax<v.second)ymax = v.second;
             chibin++;
         }
-        for(auto v:resn){
+        //cout << chibin << endl;
+        /*for(auto v:resg){
             if(v.second>pow(10,-10))continue;
-            chinarrow -> SetPoint(chinbin,v.first,v.second);
+            grochigraph -> SetPoint(chinbin,v.first,v.second);
             chinbin++;
-        }
+        }*/
     }
     
-    st.Graph(chigraph,axall);
+    //st.Graph(chigraph,axall);
+    chigraph -> SetLineColor(kBlack);
     chigraph -> Draw("AL");
-    chinarrow -> SetLineColor(kMagenta);
-    //chinarrow -> Draw("L");
-    TLegend *legend = new TLegend(0.65, 0.65, 0.85, 0.85); 
-    legend->AddEntry(chigraph, "wide mode", "l");
-    //legend->AddEntry(chinarrow, "narrow mode", "l");
-    //legend -> Draw();
+    cout << "xmin: " << xmin << " , xmax: " << xmax << endl;
+    cout << "ymin: " << ymin << " , ymax: " << ymax << endl;
+    
 }
 void DrawRatio(int i,int j){
     double pfitlist[8][nbin],deltaP[8][nbin];
@@ -873,10 +927,10 @@ void DrawRatio(int i,int j){
     prep(bin,sb,fb){
         if(pfitlist[j][bin]==DINF)continue;
         
-        if(pfitlist[j][bin]/gpfitlist[j][bin]>1.01 || pfitlist[j][bin]/gpfitlist[j][bin]<0.99){
+        /*if(pfitlist[j][bin]/gpfitlist[j][bin]>1.01 || pfitlist[j][bin]/gpfitlist[j][bin]<0.99){
             cout << bin << endl;
             continue;
-        }
+        }*/
         rgraph -> SetPoint(rbin,Freq(i,bin),pfitlist[j][bin]/gpfitlist[j][bin]);
         rbin++;
     }
@@ -885,30 +939,37 @@ void DrawRatio(int i,int j){
     st.Graph(rgraph,axratio);
     rgraph -> Draw("AP");
 }
+void DrawLogGraphExample() {
+    //TCanvas *canvas = new TCanvas("canvas", "Canvas Title", 800, 600);
+    //canvas->SetLogx();
+
+    TGraph *graph = new TGraph();
+    graph->SetPoint(0, 1, 1);
+    graph->SetPoint(1, 10, 10);
+    graph->SetPoint(2, 100, 100);
+
+    graph->Draw("APL");
+    //canvas->Draw();
+}
+
 //これがメイン関数
 void savefitres(){
-    TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
-    c1 -> SetMargin(0.14,0.11,0.2,0.1);
-    c1 -> SetLogy();//ログスケールのON/OFFはここだけで！
-    //c1 -> SetLogx();//同じく横軸もログスケールにしたい場合はここを外す
-    //まずはそれぞれ別々の情報が詰められているか確認する
-    double maxbin = 0.5;
-    vector<int> excess;
-    //alllimit();
     
-    st.dot_size = 0.5;
-    st.color = kBlue;
-    st.markerstyle = 20;
-    st.lcolor = kMagenta;
-    int band = 1;
-    double fmin = 213.8+2*band;
-    double fmax = 216.2+2*band;
-    axrange axtest = {fmin,fmax,0,5*pow(10,-18),0,1,";Freq[GHz];#Delta P[W]"};
-    //double pfitlist[8][nbin],deltaP[8][nbin];
-    //rep(i,8)rep(bin,nbin)pfitlist[i][bin] = DINF;
-    //P_dP();
-    DrawLimit();
+    TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
+    c1 -> SetMargin(0.14,0.14,0.2,0.1);
+    //c1 -> SetLogx();//同じく横軸もログスケールにしたい場合はここを外す
+    //c1 -> SetLogy();//ログスケールのON/OFFはここだけで！
+    
+    //まずはそれぞれ別々の情報が詰められているか確認する
+    P_dP();
+    // DrawPower(phist);
+    // st.Hist(phist);
+    // phist -> Draw();
+    // phist -> Fit("gaus");
+    //DrawLimit();
+    //c1 -> Draw();
     //DrawRatio(1,0);
+    //DrawLogGraphExample();
     //フィット結果そのものの比較,エラーとのコンシステンシー
     /*for(int fn=1;fn<25;fn++){
         axtest = {213.8+2*fn,216.2+2*fn,0,2,0,1,";Freq[GHz];ratio"};
