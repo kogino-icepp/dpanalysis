@@ -155,9 +155,7 @@ void toge_scan2(bool (&hantei)[nbin],double input[nbin],double &sigma,double (&t
     for(int bin=sb;bin<fb;bin++){
         if(abs(togevalue[bin])>5*sigma){
             hantei[bin-1] = true;
-            
         }
-        //if(bin>7190 && bin<7205)cout << bin << " : " << togevalue[bin]/sigma << endl;
         tvalue[bin] = togevalue[bin]/sigma;
         //normhist -> Fill(tvalue[bin]);
         num++;
@@ -306,7 +304,6 @@ void basic_spec2(){
         double Ptemplist[4][nbin];
         rep(j,4)rep(bin,nbin)Ptemplist[j][bin] = DINF;
         for(int j=0;j<1;j++){
-            //cout << j << endl;
             filesystem::current_path(cdir);
             double Freq1[nbin],cold1[nbin],hot1[nbin],mirror1[nbin],Freq2[nbin],cold2[nbin],hot2[nbin],mirror2[nbin];
             //ビンのシフトをここでいじる
@@ -326,7 +323,6 @@ void basic_spec2(){
                     tree->SetBranchAddress("body",&body);
                     tree->GetEntry(0);
                     if(shift==sbin.at(j)){
-                        //cout << file_name << endl;
                         if(num==1 && body==0){
                             for(int bin=0;bin<nbin;bin++){
                                 tree -> GetEntry(bin);
@@ -368,8 +364,6 @@ void basic_spec2(){
                     }
                 }
             }
-            //if(xfft%2==1)cout << Freq1[2000+sbin[j]] << " : ";
-            //else cout << Freq1[2000-sbin[j]] << " : "; 
             //積分値(平均値)
             double Cold[nbin],Hot[nbin],Mirror[nbin];
             rep(bin,nbin){
@@ -381,7 +375,6 @@ void basic_spec2(){
             int outbin = sb;
             if(xfft%2==1)outbin += sbin[j];
             else outbin -= sbin[j];
-            //cout << Freq1[outbin] << " ";
             //テスト関数(デルタ関数とシグナル)を用意してヒストグラム化,FFTで変換してその物性を確かめる
             axrange axtemp = {fmin,fmax,0,100,0,1,";Freq[GHz];Prec[K]"};
             axrange axgain = {fmin,fmax,0,pow(10,31),0,1,";Freq[GHz];Gain[a.u]"};
@@ -435,9 +428,6 @@ void basic_spec2(){
                 if(Ctoge[j][bin]){
                     tgcold -> SetPoint(tbin,Freq1[bin],Cold[bin]);
                     tbin++;
-                    cout << bin << " --------------" << endl;
-                    cout << Freq1[bin] << " : " << ddcold[bin+1] << endl;
-
                 }
             }
             axrange axsys = {fmin,fmax,0,pow(10,-14),0,1,";Freq[GHz];Psys[W]"};
@@ -469,9 +459,7 @@ void basic_spec2(){
             //ggain -> SetMarkerColor(kBlack);
             //ggain -> Draw("AP");
             
-            //cout << Freq1[18596]  << " : " << Freq1[22258] <<endl; 
             //怪しいチャンネルがどこで反応しているのか、何点反応しているのかなどを確かめる
-            //cout << ddcold[falchan-1024] << " " << ddhot[falchan-1024] << endl;
             //st.Graph(gcold,axraw);
             
             //c1 -> SetLogy();

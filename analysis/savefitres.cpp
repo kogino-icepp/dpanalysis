@@ -906,7 +906,7 @@ void DrawLimit(){
         }*/
     }
     
-    //st.Graph(chigraph,axall);
+    st.Graph(chigraph,axall);
     chigraph -> SetLineColor(kBlack);
     chigraph -> Draw("AL");
     cout << "xmin: " << xmin << " , xmax: " << xmax << endl;
@@ -957,16 +957,16 @@ void savefitres(){
     
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.14,0.14,0.2,0.1);
-    //c1 -> SetLogx();//同じく横軸もログスケールにしたい場合はここを外す
-    //c1 -> SetLogy();//ログスケールのON/OFFはここだけで！
+    c1 -> SetLogx();//同じく横軸もログスケールにしたい場合はここを外す
+    c1 -> SetLogy();//ログスケールのON/OFFはここだけで！
     
     //まずはそれぞれ別々の情報が詰められているか確認する
-    P_dP();
+    //P_dP();
     // DrawPower(phist);
     // st.Hist(phist);
     // phist -> Draw();
     // phist -> Fit("gaus");
-    //DrawLimit();
+    DrawLimit();
     //c1 -> Draw();
     //DrawRatio(1,0);
     //DrawLogGraphExample();

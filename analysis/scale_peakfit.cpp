@@ -168,7 +168,11 @@ void ChiCheck2(int i,int j,int p,TH1D*hist){
         vparas[2][bin]=c;
         vpfreq[bin]=freq;
         if(chi==DINF)continue;
-        if(bin%30==0)hist -> Fill(chi);
+        if(bin%30==0){
+            hist -> Fill(chi);
+            
+            if(chi>1.5)cout << bin << endl;
+        }
         
     }
 }
@@ -621,7 +625,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
 void scale_peakfit(){
     TCanvas *c1 = new TCanvas("c1","My Canvas",10,10,700,500);
     c1 -> SetMargin(0.14,0.11,0.2,0.1);
-    //c1 -> SetLogy();
+    c1 -> SetLogy();
     double maxbin = 0.5;
     string whitedir = "/Users/oginokyousuke/data/white_noise";
     vector<int> excess;
@@ -630,10 +634,10 @@ void scale_peakfit(){
     st.dot_size = 0.5;
     st.color = kBlue;
     st.markerstyle = 20;
-    // TH1D* chihist = new TH1D("chihist",";#chi^{2}/NDF;Count",100,0,5);
-    // ChiCheck2(6,0,1,chihist);
-    // st.Hist(chihist);
-    // chihist -> Draw();
+    TH1D* chihist = new TH1D("chihist",";#chi^{2}/NDF;Count",100,0,5);
+    ChiCheck2(5,0,1,chihist);
+    st.Hist(chihist);
+    chihist -> Draw();
     // TF1* chif = new TF1("chif","chiF_freefit(x,[0],[1],17,0.05)",0,5);
     // double p0 = chihist -> GetEntries();
     // double p1 = 0.1;
@@ -643,87 +647,87 @@ void scale_peakfit(){
     // double chi2 = chif -> GetChisquare();
     // double ndf = chif -> GetNDF();
     // cout << "chi/ndf: " << chi2/ndf << endl;
-    for(int fn=12;fn<13;fn++){
-        axtest = {213.8+2*fn,216.2+2*fn,0,2,0,1,";Freq[GHz];Error[K]"};
-        TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
-        double deltaP[8][nbin];
-        double pfitlist[8][nbin];
-        double gdeltaP[8][nbin];
-        double gpfitlist[8][nbin];
-        rep(i,8)rep(j,nbin){
-            pfitlist[i][j] = DINF;
-            gpfitlist[i][j] = DINF;
-        }
-        //string roofilename = "peakfitdata"+to_string(fn)+".root";
-        //TFile * savefile = new TFile(roofilename.c_str(),"recreate");
-        for(int j=2;j<3;j++){
-            prep(p,1,2){
-                double testlist[nbin];
-                double testdeltaP[nbin];
-                double gtestlist[nbin];
-                double gtestdeltaP[nbin];
-                rep(bin,nbin){
-                    testlist[bin] = DINF;
-                    testdeltaP[bin] = DINF;
-                }
-                TH1D* whitehist1 = new TH1D("whitehist1",";P_{fit}[kHz*W];Count",100,-1,1);
-                TH1D* whitehist2 = new TH1D("whitehist2",";P_{fit}[kHz*W];Count",100,-1,1);
-                TH1D* scalehist = new TH1D("scalehist",";P_{fit}/#Delta P_{fit};Count",100,-10,10);
-                TF1* fgaus = new TF1("fgaus","gaus",-10,10);
+    // for(int fn=12;fn<13;fn++){
+    //     axtest = {213.8+2*fn,216.2+2*fn,0,2,0,1,";Freq[GHz];Error[K]"};
+    //     TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
+    //     double deltaP[8][nbin];
+    //     double pfitlist[8][nbin];
+    //     double gdeltaP[8][nbin];
+    //     double gpfitlist[8][nbin];
+    //     rep(i,8)rep(j,nbin){
+    //         pfitlist[i][j] = DINF;
+    //         gpfitlist[i][j] = DINF;
+    //     }
+    //     //string roofilename = "peakfitdata"+to_string(fn)+".root";
+    //     //TFile * savefile = new TFile(roofilename.c_str(),"recreate");
+    //     for(int j=2;j<3;j++){
+    //         prep(p,1,2){
+    //             double testlist[nbin];
+    //             double testdeltaP[nbin];
+    //             double gtestlist[nbin];
+    //             double gtestdeltaP[nbin];
+    //             rep(bin,nbin){
+    //                 testlist[bin] = DINF;
+    //                 testdeltaP[bin] = DINF;
+    //             }
+    //             TH1D* whitehist1 = new TH1D("whitehist1",";P_{fit}[kHz*W];Count",100,-1,1);
+    //             TH1D* whitehist2 = new TH1D("whitehist2",";P_{fit}[kHz*W];Count",100,-1,1);
+    //             TH1D* scalehist = new TH1D("scalehist",";P_{fit}/#Delta P_{fit};Count",100,-10,10);
+    //             TF1* fgaus = new TF1("fgaus","gaus",-10,10);
                 
                 
-                //fitterを毎回回さなくてもいいように確定版のデータでなくてもいいのでrootファイルを作成して保存しておきたい
-                GetDPfit(fn,j,p,testlist,testdeltaP,chihist);
-                /*gloGetDPfit(fn,j,p,gtestlist,gtestdeltaP);
-                TGraph* egraph = new TGraph;
-                int ebin = 0;
-                prep(bin,sb,fb){
-                    if(testdeltaP[bin]==DINF)continue;
-                    double freq;
-                    if(fn%2==1)freq = (213.8+fn*2)+0.0000762939*bin;
-                    else freq = (216.2+fn*2)-0.0000762939*bin;
-                    egraph -> SetPoint(ebin,freq,testdeltaP[bin]);
-                    ebin++;
-                }
-                axrange axe = {213.8+fn*2,216.2+fn*2,0,1,0,1,";Freq[GHz];Error[K]"};
+    //             //fitterを毎回回さなくてもいいように確定版のデータでなくてもいいのでrootファイルを作成して保存しておきたい
+    //             GetDPfit(fn,j,p,testlist,testdeltaP,chihist);
+    //             /*gloGetDPfit(fn,j,p,gtestlist,gtestdeltaP);
+    //             TGraph* egraph = new TGraph;
+    //             int ebin = 0;
+    //             prep(bin,sb,fb){
+    //                 if(testdeltaP[bin]==DINF)continue;
+    //                 double freq;
+    //                 if(fn%2==1)freq = (213.8+fn*2)+0.0000762939*bin;
+    //                 else freq = (216.2+fn*2)-0.0000762939*bin;
+    //                 egraph -> SetPoint(ebin,freq,testdeltaP[bin]);
+    //                 ebin++;
+    //             }
+    //             axrange axe = {213.8+fn*2,216.2+fn*2,0,1,0,1,";Freq[GHz];Error[K]"};
 
-                st.Graph(egraph,axe);
-                egraph -> Draw("AP");
-                TF1* glof = new TF1("glof","0.0733",228,230);
-                glof -> SetLineWidth(4);
-                glof -> Draw("same");
-                c1 -> SetLogy();
-                st.Hist(chihist);
-                chihist -> Draw();
-                TF1* chif = new TF1("chif","chiF_freefit(x,[0],[1],26,0.05)",0,5);
-                double p0 = chihist -> GetEntries();
-                double p1 = 0.0385;
-                chif -> FixParameter(0,p0*0.9);
-                chif -> FixParameter(1,p1);
-                chif -> Draw("same");
-                //chihist -> Fit(chif);
-                //
+    //             st.Graph(egraph,axe);
+    //             egraph -> Draw("AP");
+    //             TF1* glof = new TF1("glof","0.0733",228,230);
+    //             glof -> SetLineWidth(4);
+    //             glof -> Draw("same");
+    //             c1 -> SetLogy();
+    //             st.Hist(chihist);
+    //             chihist -> Draw();
+    //             TF1* chif = new TF1("chif","chiF_freefit(x,[0],[1],26,0.05)",0,5);
+    //             double p0 = chihist -> GetEntries();
+    //             double p1 = 0.0385;
+    //             chif -> FixParameter(0,p0*0.9);
+    //             chif -> FixParameter(1,p1);
+    //             chif -> Draw("same");
+    //             //chihist -> Fit(chif);
+    //             //
                 
-                TGraph* rgraph = new TGraph;
-                int rbin = 0;
-                prep(bin,sb+1,fb){
-                    if(testlist[bin]==DINF)continue;
-                    double freq;
-                    //周波数の導出
-                    if(fn%2==1)freq = (213.8+fn*2)+0.0000762939*bin;
-                    else freq = (216.2+fn*2)-0.0000762939*bin;
-                    rgraph -> SetPoint(rbin,freq,testlist[bin]/gtestlist[bin]);
-                    rbin++;
-                }
-                st.Graph(rgraph,axtest);
-                rgraph -> Draw("AP");
-                TF1* kijunf = new TF1("kijunf","0.0659",215.8,218.2);
-                kijunf -> Draw("same");
-                //このfor文内でコメントアウトするときにはここを使おう！*/
-            }
-        }
+    //             TGraph* rgraph = new TGraph;
+    //             int rbin = 0;
+    //             prep(bin,sb+1,fb){
+    //                 if(testlist[bin]==DINF)continue;
+    //                 double freq;
+    //                 //周波数の導出
+    //                 if(fn%2==1)freq = (213.8+fn*2)+0.0000762939*bin;
+    //                 else freq = (216.2+fn*2)-0.0000762939*bin;
+    //                 rgraph -> SetPoint(rbin,freq,testlist[bin]/gtestlist[bin]);
+    //                 rbin++;
+    //             }
+    //             st.Graph(rgraph,axtest);
+    //             rgraph -> Draw("AP");
+    //             TF1* kijunf = new TF1("kijunf","0.0659",215.8,218.2);
+    //             kijunf -> Draw("same");
+    //             //このfor文内でコメントアウトするときにはここを使おう！*/
+    //         }
+    //     }
         
-        //gefitratio -> Draw("AP");
-    }
+    //     //gefitratio -> Draw("AP");
+    // }
     return;
 }
