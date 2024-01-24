@@ -125,11 +125,11 @@ void ChiCheck2(int i,int j,int p,TH1D*hist){
     Mask ms;
     vector<vector<int>> mskmap = ms.maskmap;
     bool mskhantei[4][nbin];
-    for(int j=0;j<4;j++){
-        for(int bin=0;bin<nbin;bin++){mskhantei[j][bin] = false;}
+    rep(ite,4){
+        rep(bin,nbin){mskhantei[ite][bin] = false;}
     }
-    for(int j=0;j<4;j++){//mskmapに記録されているものだけtrueに変更
-        for(int bin:mskmap[j])mskhantei[j][bin] = true;
+    rep(ite,4){//mskmapに記録されているものだけtrueに変更
+        for(int bin:mskmap[ite])mskhantei[ite][bin] = true;
     }
     filesystem::path path=filesystem::current_path();
     filesystem::current_path(saveexe);
@@ -167,11 +167,18 @@ void ChiCheck2(int i,int j,int p,TH1D*hist){
         vparas[1][bin]=b;
         vparas[2][bin]=c;
         vpfreq[bin]=freq;
+        bool togehantei = false;
+        rep(ad,29){
+            if(mskhantei[xfft][bin+ad]){
+                togehantei = true;
+                break;
+            }
+        }
+        if(togehantei)continue;
         if(chi==DINF)continue;
         if(bin%30==0){
             hist -> Fill(chi);
-            
-            if(chi>1.5)cout << bin << endl;
+            //if(chi>1.5)cout << bin << endl;
         }
         
     }
@@ -240,11 +247,11 @@ void gloGetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin])
     Mask ms;
     vector<vector<int>> mskmap = ms.maskmap;
     bool mskhantei[4][nbin];
-    for(int j=0;j<4;j++){
-        for(int bin=0;bin<nbin;bin++){mskhantei[j][bin] = false;}
+    rep(ite,4){
+        rep(bin,nbin){mskhantei[ite][bin] = false;}
     }
-    for(int j=0;j<4;j++){//mskmapに記録されているものだけtrueに変更
-        for(int bin:mskmap[j])mskhantei[j][bin] = true;
+    rep(ite,4){//mskmapに記録されているものだけtrueに変更
+        for(int bin:mskmap[ite])mskhantei[ite][bin] = true;
     }
     filesystem::path path=filesystem::current_path();
     filesystem::current_path(saveexe);
@@ -407,11 +414,11 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
     Mask ms;
     vector<vector<int>> mskmap = ms.maskmap;
     bool mskhantei[4][nbin];
-    for(int j=0;j<4;j++){
-        for(int bin=0;bin<nbin;bin++){mskhantei[j][bin] = false;}
+    rep(ite,4){
+        rep(bin,nbin){mskhantei[ite][bin] = false;}
     }
-    for(int j=0;j<4;j++){//mskmapに記録されているものだけtrueに変更
-        for(int bin:mskmap[j])mskhantei[j][bin] = true;
+    rep(ite,4){//mskmapに記録されているものだけtrueに変更
+        for(int bin:mskmap[ite])mskhantei[ite][bin] = true;
     }
     
     filesystem::path path=filesystem::current_path();
@@ -481,7 +488,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
     */
     int outbin[10];
     int obin = 0;
-    for(int bin=23234;bin<23235;bin++){
+    for(int bin=22770;bin<22771;bin++){
         if(vparas[0][bin]==DINF &&vparas[1][bin]==DINF  &&vparas[2][bin]==DINF){
             continue;
         }
@@ -489,6 +496,7 @@ void GetDPfit(int i,int j,int p,double (&dlist)[nbin],double (&deltaP)[nbin],TH1
         rep(ad,29){
             if(mskhantei[xfft][bin+ad]){
                 togemask = true;
+                cout << "Pass" << endl;
                 break;
             }
         }
@@ -635,18 +643,28 @@ void scale_peakfit(){
     st.color = kBlue;
     st.markerstyle = 20;
     TH1D* chihist = new TH1D("chihist",";#chi^{2}/NDF;Count",100,0,5);
-    ChiCheck2(5,0,1,chihist);
+    ChiCheck2(6,0,1,chihist);
+    
     st.Hist(chihist);
     chihist -> Draw();
-    // TF1* chif = new TF1("chif","chiF_freefit(x,[0],[1],17,0.05)",0,5);
-    // double p0 = chihist -> GetEntries();
-    // double p1 = 0.1;
-    // chif -> FixParameter(0,p0*0.9);
-    // chif -> SetParameter(1,p1);
-    // chihist -> Fit(chif);
-    // double chi2 = chif -> GetChisquare();
-    // double ndf = chif -> GetNDF();
-    // cout << "chi/ndf: " << chi2/ndf << endl;
+    double testlist[nbin];
+    double testdeltaP[nbin];
+    double gtestlist[nbin];
+    double gtestdeltaP[nbin];
+    rep(bin,nbin){
+        testlist[bin] = DINF;
+        testdeltaP[bin] = DINF;
+    }
+    //GetDPfit(5,0,1,testlist,testdeltaP,chihist);
+    TF1* chif = new TF1("chif","chiF_freefit(x,[0],[1],17,0.05)",0,5);
+    double p0 = chihist -> GetEntries();
+    double p1 = 0.01;
+    chif -> FixParameter(0,p0*0.9);
+    chif -> SetParameter(1,p1);
+    chihist -> Fit(chif);
+    double chi2 = chif -> GetChisquare();
+    double ndf = chif -> GetNDF();
+    cout << "chi/ndf: " << chi2/ndf << endl;
     // for(int fn=12;fn<13;fn++){
     //     axtest = {213.8+2*fn,216.2+2*fn,0,2,0,1,";Freq[GHz];Error[K]"};
     //     TH1D* chihist = new TH1D("chihist","chihist;#chi^{2}/NDF;Count",100,0,5);
